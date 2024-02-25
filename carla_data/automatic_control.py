@@ -10,8 +10,15 @@
 
 
 """Example of automatic vehicle control from client side."""
-
 from __future__ import print_function
+
+import config
+import sys
+
+carla_python_path = config.CARLA_PYTHON_PATH
+if carla_python_path not in sys.path:
+    sys.path.insert(0,carla_python_path)
+
 
 import argparse
 import collections
@@ -22,12 +29,8 @@ import math
 import os
 import numpy.random as random
 import re
-import sys
 import weakref
 
-carla_python_path = 'C:\my_workspace\school\csce482\carla_data\carla\WindowsNoEditor\PythonAPI\carla'
-if carla_python_path not in sys.path:
-    sys.path.insert(0,carla_python_path)
 
 
 try:

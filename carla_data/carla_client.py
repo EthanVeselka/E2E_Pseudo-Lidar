@@ -16,18 +16,97 @@ from agents.navigation.behavior_agent import BehaviorAgent
 from agents.navigation.basic_agent import BasicAgent  
 from agents.navigation.constant_velocity_agent import ConstantVelocityAgent  
 import time
-from pprint import pprint
 import datetime
 import os
 import numpy as np
+from pascal_voc_writer import Writer
+
+
 
 POLL_RATE = config.POLL_RATE
 CAMERA_X = config.CAMERA_X
 CAMERA_Y = config.CAMERA_Y
 DATA_PATH = config.DATA_PATH
+CAMERA_FOV = config.CAMERA_FOV
+
+def build_projection_matrix(w, h, fov):
+    focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
+    K = np.identity(3)
+    K[0, 0] = K[1, 1] = focal
+    K[0, 2] = w / 2.0
+    K[1, 2] = h / 2.0
+    return K
+
+def get_image_point(loc, K, w2c):
+        # Calculate 2D projection of 3D coordinate
+
+        # Format the input coordinate (loc is a carla.Position object)
+        point = np.array([loc.x, loc.y, loc.z, 1])
+        # transform to camera coordinates
+        point_camera = np.dot(w2c, point)
+
+        # New we must change from UE4's coordinate system to an "standard"
+        # (x, y ,z) -> (y, -z, x)
+        # and we remove the fourth componebonent also
+        point_camera = [point_camera[1], -point_camera[2], point_camera[0]]
+
+        # now project 3D->2D using the camera matrix
+        point_img = np.dot(K, point_camera)
+        # normalize
+        point_img[0] /= point_img[2]
+        point_img[1] /= point_img[2]
+
+        return point_img[0:2]
 
 
-def rgb_callback(data, name, episode_path):
+def save_boxes(world, name, sample_path, transform):
+    world.world.get_actors()
+    bounding_box_set = world.world.get_level_bbs()
+    world_2_camera = np.array(transform.get_inverse_matrix())
+    writer = Writer(sample_path + '.png', CAMERA_X, CAMERA_Y) 
+    for bb in bounding_box_set:
+        # Filter for distance from ego vehicle
+        if bb.location.distance(world.player.get_transform().location) < 50:
+    
+            # Calculate the dot product between the forward vector
+            # of the vehicle and the vector between the vehicle
+            # and the bounding box. We threshold this dot product
+            # to limit to drawing bounding boxes IN FRONT OF THE CAMERA
+            forward_vec = world.player.get_transform().get_forward_vector()
+            ray = bb.location - world.player.get_transform().location
+            
+            if forward_vec.dot(ray) > 1:
+                K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
+                #p1 = get_image_point(bb.location, K, world_2_camera)
+                verts = [v for v in bb.get_world_vertices(transform)]
+                x_max = -10000
+                x_min = 10000
+                y_max = -10000
+                y_min = 10000
+                
+                for vert in verts:
+                    p = get_image_point(vert, K, world_2_camera)
+                    if p[0] > x_max:
+                        x_max = p[0]
+                    if p[0] < x_min:
+                        x_min = p[0]
+                    if p[1] > y_max:
+                        y_max = p[1]
+                    if p[1] < y_min:
+                        y_min = p[1]
+
+                # Add the object to the frame (ensure it is inside the image)
+                if x_min > 0 and x_max < CAMERA_X and y_min > 0 and y_max < CAMERA_Y: 
+                    writer.addObject('vehicle', x_min, y_min, x_max, y_max)
+
+    # Save the bounding boxes in the scene
+    filename = 'bbs.xml'
+    file_path = os.path.join(sample_path, filename)
+    writer.save(file_path)
+            
+                
+
+def rgb_callback(data, name, episode_path, world):
     sample_path = os.path.join(episode_path, str(data.frame))
     #print(sample_path)
     if not os.path.exists(sample_path):
@@ -36,7 +115,9 @@ def rgb_callback(data, name, episode_path):
     file_name = '%s.png' % name
     full_path = os.path.join(sample_path, file_name)
     data.save_to_disk(full_path)
-    data.frame
+    
+    if name == 'left_rgb':
+        save_boxes(world, name, sample_path, data.transform)
     
 def depth_callback(data, name, episode_path):
     sample_path = os.path.join(episode_path, str(data.frame))
@@ -47,7 +128,7 @@ def depth_callback(data, name, episode_path):
     file_name = '%s.png' % name
     full_path = os.path.join(sample_path, file_name)
     data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
-    data.frame
+    
     
 def lidar_callback(data, name, episode_path):
     sample_path = os.path.join(episode_path, str(data.frame))
@@ -57,6 +138,9 @@ def lidar_callback(data, name, episode_path):
     file_name = '%s.ply' % name
     full_path = os.path.join(sample_path, file_name)
     data.save_to_disk(full_path)
+    
+
+    
  
 
 def prep_episode(client, args): # uses code from automatic_control.py and generate_traffic.py
@@ -161,8 +245,8 @@ def prep_episode(client, args): # uses code from automatic_control.py and genera
         transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8))
         #lidar = world.world.spawn_actor(lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
         
-        l_rgb_callback = lambda image: rgb_callback(image, 'left_rgb', episode_path)
-        r_rgb_callback = lambda image: rgb_callback(image, 'right_rgb', episode_path)
+        l_rgb_callback = lambda image: rgb_callback(image, 'left_rgb', episode_path, world)
+        r_rgb_callback = lambda image: rgb_callback(image, 'right_rgb', episode_path, None)
         l_depth_callback = lambda image: depth_callback(image, 'left_depth', episode_path)
         #lid_callback = lambda data: lidar_callback(data, 'left_lidar', episode_path)
         
