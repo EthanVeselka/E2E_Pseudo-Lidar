@@ -21,7 +21,7 @@ import os
 import numpy as np
 from pascal_voc_writer import Writer
 import configparser
-
+import threading
 
 
 POLL_RATE = config.POLL_RATE
@@ -111,25 +111,37 @@ def save_boxes(world, name, sample_path, transform):
 def rgb_callback(data, name, episode_path, world):
     sample_path = os.path.join(episode_path, str(data.frame))
     #print(sample_path)
-    if not os.path.exists(sample_path):
-        #print(sample_path)
-        os.mkdir(sample_path)
-    file_name = '%s.png' % name
-    full_path = os.path.join(sample_path, file_name)
-    data.save_to_disk(full_path)
     
-    if name == 'left_rgb':
-        save_boxes(world, name, sample_path, data.transform)
+    # Folder may already exist
+    try:
+        if not os.path.exists(sample_path):
+            #print(sample_path)
+            os.mkdir(sample_path)
+    except:
+        None
+    finally:
+        file_name = '%s.png' % name
+        full_path = os.path.join(sample_path, file_name)
+        data.save_to_disk(full_path)
+        
+        if name == 'left_rgb':
+            save_boxes(world, name, sample_path, data.transform)
     
 def depth_callback(data, name, episode_path):
     sample_path = os.path.join(episode_path, str(data.frame))
     #print(sample_path)
-    if not os.path.exists(sample_path):
-        #print(sample_path)
-        os.mkdir(sample_path)
-    file_name = '%s.png' % name
-    full_path = os.path.join(sample_path, file_name)
-    data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
+    
+    # Folder may already exist
+    try:
+        if not os.path.exists(sample_path):
+            #print(sample_path)
+            os.mkdir(sample_path)
+    except:
+        None
+    finally:
+        file_name = '%s.png' % name
+        full_path = os.path.join(sample_path, file_name)
+        data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
     
     
 def lidar_callback(data, name, episode_path):
@@ -251,9 +263,9 @@ def prep_episode(client, args): # uses code from automatic_control.py and genera
         transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8))
         #lidar = world.world.spawn_actor(lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
         
-        l_rgb_callback = lambda image: rgb_callback(image, 'left_rgb', episode_path, world)
-        r_rgb_callback = lambda image: rgb_callback(image, 'right_rgb', episode_path, None)
-        l_depth_callback = lambda image: depth_callback(image, 'left_depth', episode_path)
+        l_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'left_rgb', episode_path, world)).start()
+        r_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'right_rgb', episode_path, None)).start()
+        l_depth_callback = lambda image: threading.Thread(target = depth_callback, args = (image, 'left_depth', episode_path)).start()
         #lid_callback = lambda data: lidar_callback(data, 'left_lidar', episode_path)
         
         l_rgb.listen(l_rgb_callback)
@@ -328,6 +340,14 @@ def sim_episode(client, args): # uses code from automatic_control.py and generat
             num_ticks += 1
 
     finally:
+        
+        # Join all threads, not most eloquent solution but prevents simulation from ending while data is being processed in some cases
+        for thread in threading.enumerate():
+            if thread is not threading.currentThread():
+                try:
+                    thread.join()
+                except:
+                    None
 
         if world is not None:
             settings = world.world.get_settings()
@@ -342,6 +362,7 @@ def sim_episode(client, args): # uses code from automatic_control.py and generat
             world.destroy()
 
         pygame.quit()
+        
         time.sleep(60)
 
 
