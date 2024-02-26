@@ -29,6 +29,7 @@ CAMERA_X = config.CAMERA_X
 CAMERA_Y = config.CAMERA_Y
 DATA_PATH = config.DATA_PATH
 CAMERA_FOV = config.CAMERA_FOV
+CONFIG_INI_PATH = config.CONFIG_INI_PATH
 
 def build_projection_matrix(w, h, fov):
     focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
@@ -209,6 +210,10 @@ def prep_episode(client, args): # uses code from automatic_control.py and genera
         episode_path = os.path.join(data_path, episode_name)
         os.mkdir(episode_path)
         
+        with open(os.path.join(CONFIG_INI_PATH), 'r') as source, open(os.path.join(episode_path, "config.ini"), 'w') as dest:
+            config = source.read()
+            dest.write(config)
+                
        
         bp_library = world.world.get_blueprint_library()
         rgb_bp = bp_library.find('sensor.camera.rgb')
@@ -494,7 +499,7 @@ def main():
     
     # Read arguments from config.ini
     args_config = configparser.ConfigParser()
-    args_config.read('config.ini')
+    args_config.read(os.path.join(CONFIG_INI_PATH))
     
     print("Weather", args_config['Settings']['weather'])
     
@@ -734,9 +739,7 @@ def main():
             all_actors[i].set_max_speed(float(walker_speed[int(i/2)]))
 
         print('spawned %d vehicles and %d walkers, press Ctrl+C to exit.' % (len(vehicles_list), len(walkers_list)))
-
-        # Example of how to use Traffic Manager parameters
-        traffic_manager.global_percentage_speed_difference(30.0)
+        
         
         
         try:
