@@ -20,6 +20,7 @@ import datetime
 import os
 import numpy as np
 from pascal_voc_writer import Writer
+import configparser
 
 
 
@@ -466,12 +467,48 @@ def main():
         action='store_true',
         default=False,
         help='Enable automatic car light management')
+    argparser.add_argument(
+        '--weather',
+        action='store',
+        default=carla.WeatherParameters.Default,
+        help='Set weather preset')
+    argparser.add_argument(
+        '--map',
+        action='store',
+        type=str,
+        default="Town01",
+        help='Set map name')
+    argparser.add_argument(
+        '--external_behavior',
+        action='store',
+        choices=["cautious", "normal", "aggressive"],
+        type=str,
+        default="normal",
+        help='Set behavior of external drivers')
 
     args = argparser.parse_args()
     
     #args.asynch = True
     
     args.width, args.height = [int(x) for x in args.res.split('x')]
+    
+    # Read arguments from config.ini
+    args_config = configparser.ConfigParser()
+    args_config.read('config.ini')
+    
+    print("Weather", args_config['Settings']['weather'])
+    
+    weathers = [carla.WeatherParameters.Default, carla.WeatherParameters.ClearNoon, carla.WeatherParameters.CloudyNoon, carla.WeatherParameters.WetNoon, carla.WeatherParameters.WetCloudyNoon, carla.WeatherParameters.MidRainyNoon, carla.WeatherParameters.HardRainNoon, carla.WeatherParameters.SoftRainNoon, carla.WeatherParameters.ClearSunset, carla.WeatherParameters.CloudySunset, carla.WeatherParameters.WetSunset, carla.WeatherParameters.WetCloudySunset, carla.WeatherParameters.MidRainSunset, carla.WeatherParameters.HardRainSunset, carla.WeatherParameters.SoftRainSunset]
+    
+    if 'Settings' in args_config:
+        if 'external_behavior' in args_config['Settings']:
+            args.external_behavior = args_config['Settings']['external_behavior']
+        if 'behavior' in args_config['Settings']:
+            args.behavior = args_config['Settings']['behavior']
+        if 'weather' in args_config['Settings']:
+            args.weather = weathers[int(args_config['Settings']['weather'])]
+        if 'map' in args_config['Settings']:
+            args.map = args_config['Settings']['map']
     
     log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
@@ -484,12 +521,13 @@ def main():
     walkers_list = []
     all_id = []
     client = carla.Client(args.host, args.port)
-    client.set_timeout(5.0)
+    client.set_timeout(10.0)
     synchronous_master = False
     random.seed(args.seed if args.seed is not None else int(time.time()))
 
     try:
         world = client.get_world()
+        client.load_world(args.map)
 
         traffic_manager = client.get_trafficmanager(args.tm_port)
         traffic_manager.set_global_distance_to_leading_vehicle(2.5)
@@ -500,6 +538,8 @@ def main():
             traffic_manager.set_hybrid_physics_radius(70.0)
         if args.seed is not None:
             traffic_manager.set_random_device_seed(args.seed)
+        if args.weather:
+            world.set_weather(args.weather)
 
         settings = world.get_settings()
         if not args.asynch:
@@ -579,6 +619,38 @@ def main():
             all_vehicle_actors = world.get_actors(vehicles_list)
             for actor in all_vehicle_actors:
                 traffic_manager.update_vehicle_lights(actor, True)
+                
+        # Sets external vehicle behavior
+        if args.external_behavior:
+            all_vehicle_actors = world.get_actors(vehicles_list)
+            for actor in all_vehicle_actors:
+                if args.external_behavior == "aggressive":
+                    traffic_manager.vehicle_percentage_speed_difference(actor, -30)
+                    traffic_manager.distance_to_leading_vehicle(actor, 2)
+                    traffic_manager.ignore_lights_percentage(actor, 60)
+                    traffic_manager.ignore_signs_percentage(actor, 60)
+                    traffic_manager.ignore_vehicles_percentage(actor, 60)
+                    traffic_manager.ignore_walkers_percentage(actor, 60)
+                    traffic_manager.random_left_lanechange_percentage(actor, 60)
+                    traffic_manager.random_right_lanechange_percentage(actor, 60)
+                if args.external_behavior == "normal":
+                    traffic_manager.vehicle_percentage_speed_difference(actor, 0)
+                    traffic_manager.distance_to_leading_vehicle(actor, 6)
+                    traffic_manager.ignore_lights_percentage(actor, 30)
+                    traffic_manager.ignore_signs_percentage(actor, 30)
+                    traffic_manager.ignore_vehicles_percentage(actor, 30)
+                    traffic_manager.ignore_walkers_percentage(actor, 30)
+                    traffic_manager.random_left_lanechange_percentage(actor, 30)
+                    traffic_manager.random_right_lanechange_percentage(actor, 30)
+                if args.external_behavior == "cautious":
+                    traffic_manager.vehicle_percentage_speed_difference(actor, 30)
+                    traffic_manager.distance_to_leading_vehicle(actor, 10)
+                    traffic_manager.ignore_lights_percentage(actor, 0)
+                    traffic_manager.ignore_signs_percentage(actor, 0)
+                    traffic_manager.ignore_vehicles_percentage(actor, 0)
+                    traffic_manager.ignore_walkers_percentage(actor, 0)
+                    traffic_manager.random_left_lanechange_percentage(actor, 0)
+                    traffic_manager.random_right_lanechange_percentage(actor, 0)
 
         # -------------
         # Spawn Walkers
