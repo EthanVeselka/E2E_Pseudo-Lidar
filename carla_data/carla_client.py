@@ -157,7 +157,7 @@ def lidar_callback(data, name, episode_path):
     
  
 
-def prep_episode(client, args): # uses code from automatic_control.py and generate_traffic.py
+def prep_episode(client, args, episode_name): # uses code from automatic_control.py and generate_traffic.py
     """
     Does setup for a simulation episode, including: setup cameras, setup pygame
     window, setup player and player behavior
@@ -218,8 +218,8 @@ def prep_episode(client, args): # uses code from automatic_control.py and genera
         #sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=vehicle)
         ts = datetime.datetime.now()
         data_path = os.path.join(DATA_PATH) 
-        episode_name = str(ts).replace(':', '-').replace('.', '-').replace(' ', '_')
         episode_path = os.path.join(data_path, episode_name)
+        episode_path = episode_path + '-' + str(ts).replace(':', '-').replace('.', '-').replace(' ', '_')
         os.mkdir(episode_path)
         
         with open(os.path.join(CONFIG_INI_PATH), 'r') as source, open(os.path.join(episode_path, "config.ini"), 'w') as dest:
@@ -294,7 +294,7 @@ def prep_episode(client, args): # uses code from automatic_control.py and genera
         
     
 
-def sim_episode(client, args): # uses code from automatic_control.py and generate_traffic.py
+def sim_episode(client, args, episode_name): # uses code from automatic_control.py and generate_traffic.py
     """
     Single simulation episode loop. This handles updating all the HUD information,
     collecting and saving sensor data, ticking the agent and, if needed,
@@ -302,7 +302,7 @@ def sim_episode(client, args): # uses code from automatic_control.py and generat
     cameras set. Calls prep_episode() to spawn player and set cameras.
     """
 
-    world, controller, display, hud, agent, traffic_manager, sensors = prep_episode(client, args)
+    world, controller, display, hud, agent, traffic_manager, sensors = prep_episode(client, args, episode_name)
 
     try:
         spawn_points = world.map.get_spawn_points()
@@ -526,15 +526,21 @@ def main():
     
     weathers = [carla.WeatherParameters.Default, carla.WeatherParameters.ClearNoon, carla.WeatherParameters.CloudyNoon, carla.WeatherParameters.WetNoon, carla.WeatherParameters.WetCloudyNoon, carla.WeatherParameters.MidRainyNoon, carla.WeatherParameters.HardRainNoon, carla.WeatherParameters.SoftRainNoon, carla.WeatherParameters.ClearSunset, carla.WeatherParameters.CloudySunset, carla.WeatherParameters.WetSunset, carla.WeatherParameters.WetCloudySunset, carla.WeatherParameters.MidRainSunset, carla.WeatherParameters.HardRainSunset, carla.WeatherParameters.SoftRainSunset]
     
+    episode_name = ''
+    
     if 'Settings' in args_config:
         if 'external_behavior' in args_config['Settings']:
             args.external_behavior = args_config['Settings']['external_behavior']
-        if 'behavior' in args_config['Settings']:
-            args.behavior = args_config['Settings']['behavior']
+            episode_name = episode_name + args_config['Settings']['external_behavior']
+        if 'ego_behavior' in args_config['Settings']:
+            args.behavior = args_config['Settings']['ego_behavior']
+            episode_name = episode_name + '_' + args_config['Settings']['ego_behavior']
         if 'weather' in args_config['Settings']:
             args.weather = weathers[int(args_config['Settings']['weather'])]
+            episode_name = episode_name + '_' + args_config['Settings']['weather']
         if 'map' in args_config['Settings']:
             args.map = args_config['Settings']['map']
+            episode_name = episode_name + '_' + args_config['Settings']['map']
     
     log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
@@ -764,7 +770,7 @@ def main():
         
         
         try:
-            sim_episode(client, args)
+            sim_episode(client, args, episode_name)
         
         
         except KeyboardInterrupt:
