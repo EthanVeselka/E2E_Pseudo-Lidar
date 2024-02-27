@@ -66,6 +66,7 @@ def save_boxes(world, name, sample_path, transform):
     bounding_box_set = world.world.get_level_bbs()
     world_2_camera = np.array(transform.get_inverse_matrix())
     writer = Writer(sample_path + '.png', CAMERA_X, CAMERA_Y) 
+    count = 0
     for bb in bounding_box_set:
         # Filter for distance from ego vehicle
         if bb.location.distance(world.player.get_transform().location) < 50:
@@ -146,12 +147,17 @@ def depth_callback(data, name, episode_path):
     
 def lidar_callback(data, name, episode_path):
     sample_path = os.path.join(episode_path, str(data.frame))
-    if not os.path.exists(sample_path):
-        #print(sample_path)
-        os.mkdir(sample_path)
-    file_name = '%s.ply' % name
-    full_path = os.path.join(sample_path, file_name)
-    data.save_to_disk(full_path)
+    
+    try:
+        if not os.path.exists(sample_path):
+            #print(sample_path)
+            os.mkdir(sample_path)
+    except:
+        None
+    finally:
+        file_name = '%s.ply' % name
+        full_path = os.path.join(sample_path, file_name)
+        data.save_to_disk(full_path)
     
 
     
@@ -257,21 +263,15 @@ def prep_episode(client, args, episode_name): # uses code from automatic_control
         depth = world.world.spawn_actor(depth_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
         
         
-        
-        lidar_bp = bp_library.find('sensor.lidar.ray_cast')
-        lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
-        transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8))
-        #lidar = world.world.spawn_actor(lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
-        
         l_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'left_rgb', episode_path, world)).start()
         r_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'right_rgb', episode_path, None)).start()
         l_depth_callback = lambda image: threading.Thread(target = depth_callback, args = (image, 'left_depth', episode_path)).start()
-        #lid_callback = lambda data: lidar_callback(data, 'left_lidar', episode_path)
+        # lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', episode_path)).start()
         
         l_rgb.listen(l_rgb_callback)
         r_rgb.listen(r_rgb_callback)
         depth.listen(l_depth_callback)
-        #lidar.listen(lid_callback)
+        # s_lidar.listen(lid_callback)
         
         
         sensors = [l_rgb, r_rgb, depth]#, lidar]
@@ -285,7 +285,7 @@ def prep_episode(client, args, episode_name): # uses code from automatic_control
         
         
         
-        return world, controller, display, hud, agent, traffic_manager, sensors
+        return world, controller, display, hud, agent, traffic_manager, sensors, episode_path
             
     except Exception as e:
         print('Something went wrong setting up the simulation episode:')
@@ -302,18 +302,34 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
     cameras set. Calls prep_episode() to spawn player and set cameras.
     """
 
-    world, controller, display, hud, agent, traffic_manager, sensors = prep_episode(client, args, episode_name)
+    world, controller, display, hud, agent, traffic_manager, sensors, episode_path = prep_episode(client, args, episode_name)
 
     try:
         spawn_points = world.map.get_spawn_points()
         clock = pygame.time.Clock()
         num_ticks = 0
+        first_tick = True
+        s_lidar = None
 
         while num_ticks < 2000:
             clock.tick()
            
             if not args.asynch:
                 world.world.tick()
+                
+                # Initialize semantic lidar on first tick
+                if first_tick:
+                    bp_library = world.world.get_blueprint_library()
+                    
+                    s_lidar_bp = bp_library.find('sensor.lidar.ray_cast_semantic')
+                    s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
+                    transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8))
+                    s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
+                    
+                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', episode_path)).start()
+                    s_lidar.listen(lid_callback)
+                    
+                    first_tick = False
                 
             else:
                 world.world.wait_for_tick()
