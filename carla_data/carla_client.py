@@ -23,7 +23,6 @@ from pascal_voc_writer import Writer
 import configparser
 import threading
 
-
 POLL_RATE = config.POLL_RATE
 CAMERA_X = config.CAMERA_X
 CAMERA_Y = config.CAMERA_Y
@@ -61,46 +60,33 @@ def get_image_point(loc, K, w2c):
         return point_img[0:2]
 
 
-def save_boxes(world, name, sample_path, transform):
+def save_boxes(world, name, sample_path, transform, bounding_box_set, player_transform):
     world.world.get_actors()
-    bounding_box_set = world.world.get_level_bbs()
     world_2_camera = np.array(transform.get_inverse_matrix())
     writer = Writer(sample_path + '.png', CAMERA_X, CAMERA_Y) 
-    count = 0
+    edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
+    K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
     for bb in bounding_box_set:
+
         # Filter for distance from ego vehicle
-        if bb.location.distance(world.player.get_transform().location) < 50:
-    
+        if bb.location.distance(player_transform.location) < 50:
+
             # Calculate the dot product between the forward vector
             # of the vehicle and the vector between the vehicle
             # and the bounding box. We threshold this dot product
             # to limit to drawing bounding boxes IN FRONT OF THE CAMERA
-            forward_vec = world.player.get_transform().get_forward_vector()
-            ray = bb.location - world.player.get_transform().location
-            
-            if forward_vec.dot(ray) > 1:
-                K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
-                #p1 = get_image_point(bb.location, K, world_2_camera)
-                verts = [v for v in bb.get_world_vertices(transform)]
-                x_max = -10000
-                x_min = 10000
-                y_max = -10000
-                y_min = 10000
-                
-                for vert in verts:
-                    p = get_image_point(vert, K, world_2_camera)
-                    if p[0] > x_max:
-                        x_max = p[0]
-                    if p[0] < x_min:
-                        x_min = p[0]
-                    if p[1] > y_max:
-                        y_max = p[1]
-                    if p[1] < y_min:
-                        y_min = p[1]
+            forward_vec = player_transform.get_forward_vector()
+            ray = bb.location - player_transform.location
 
-                # Add the object to the frame (ensure it is inside the image)
-                if x_min > 0 and x_max < CAMERA_X and y_min > 0 and y_max < CAMERA_Y: 
-                    writer.addObject('vehicle', x_min, y_min, x_max, y_max)
+            if forward_vec.dot(ray) > 1:
+                # Cycle through the vertices
+                verts = [v for v in bb.get_world_vertices(carla.Transform())]
+                for edge in edges:
+                    # Join the vertices into edges
+                    p1 = get_image_point(verts[edge[0]], K, world_2_camera)
+                    p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
+                    # Draw the edges into the camera output
+                    writer.addObject('vehicle', p1[0], p1[1], p2[0], p2[1])
 
     # Save the bounding boxes in the scene
     filename = 'bbs.xml'
@@ -109,7 +95,7 @@ def save_boxes(world, name, sample_path, transform):
             
                 
 
-def rgb_callback(data, name, episode_path, world):
+def rgb_callback(data, name, episode_path, world, bounding_box_set, player_transform):
     sample_path = os.path.join(episode_path, str(data.frame))
     #print(sample_path)
     
@@ -126,7 +112,7 @@ def rgb_callback(data, name, episode_path, world):
         data.save_to_disk(full_path)
         
         if name == 'left_rgb':
-            save_boxes(world, name, sample_path, data.transform)
+            save_boxes(world, name, sample_path, data.transform, bounding_box_set, player_transform)
     
 def depth_callback(data, name, episode_path):
     sample_path = os.path.join(episode_path, str(data.frame))
@@ -263,8 +249,8 @@ def prep_episode(client, args, episode_name): # uses code from automatic_control
         depth = world.world.spawn_actor(depth_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
         
         
-        l_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'left_rgb', episode_path, world)).start()
-        r_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'right_rgb', episode_path, None)).start()
+        l_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'left_rgb', episode_path, world, world.world.get_level_bbs(), world.player.get_transform())).start()
+        r_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'right_rgb', episode_path, None, None, None)).start()
         l_depth_callback = lambda image: threading.Thread(target = depth_callback, args = (image, 'left_depth', episode_path)).start()
         # lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', episode_path)).start()
         
