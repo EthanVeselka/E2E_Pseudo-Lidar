@@ -65,6 +65,21 @@ def get_image_point(loc, K, w2c):
         return point_img[0:2]
 
 
+def indent(elem, level=0):
+    i = "\n" + level*"  "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+
 def save_boxes(world, name, sample_path, transform, bounding_box_set, player_transform):
     # Create the XML structure
     root = ET.Element("StaticBoundingBoxes")
@@ -87,9 +102,11 @@ def save_boxes(world, name, sample_path, transform, bounding_box_set, player_tra
             
             if forward_vec.dot(ray) > 1:
                 # Cycle through the vertices
-                bbox_elem = ET.SubElement(root, "Vehicle")
+                bbox_elem = ET.SubElement(root, "BoundingBox")
+                bbox_elem.set("class", "Vehicle")
                 verts = [v for v in bb.get_world_vertices(carla.Transform())]
                 counter = 0
+                
                 for edge in edges:
                     # Join the vertices into edges
                     p1 = get_image_point(verts[edge[0]], K, world_2_camera)
@@ -107,6 +124,7 @@ def save_boxes(world, name, sample_path, transform, bounding_box_set, player_tra
     # Save the bounding boxes in the scene
     filename = 'static_bbs.xml'
     file_path = os.path.join(sample_path, filename)
+    indent(root)
     tree.write(file_path)
             
                 
@@ -178,7 +196,8 @@ def lidar_callback(data, name, episode_path, actors):
         for actor_id in actor_set:
             actor = actors.find(actor_id)
             
-            bbox_elem = ET.SubElement(root, str(type(actor)))
+            bbox_elem = ET.SubElement(root, "BoundingBox")
+            bbox_elem.set("class", str(type(actor)))
 
             bb = actor.bounding_box
             verts = [v for v in bb.get_world_vertices(carla.Transform())]
@@ -200,6 +219,7 @@ def lidar_callback(data, name, episode_path, actors):
         # Save the bounding boxes in the scene
         filename = 'dynamic_bbs.xml'
         file_path = os.path.join(sample_path, filename)
+        indent(root)
         tree.write(file_path)
     
 
