@@ -20,6 +20,7 @@ import datetime
 import os
 import numpy as np
 from pascal_voc_writer import Writer
+import xml.etree.ElementTree as ET
 import configparser
 import threading
 
@@ -65,9 +66,11 @@ def get_image_point(loc, K, w2c):
 
 
 def save_boxes(world, name, sample_path, transform, bounding_box_set, player_transform):
-    world.world.get_actors()
+    # Create the XML structure
+    root = ET.Element("StaticBoundingBoxes")
+    tree = ET.ElementTree(root)
+    
     world_2_camera = np.array(transform.get_inverse_matrix())
-    writer = Writer(sample_path + '.png', CAMERA_X, CAMERA_Y) 
     edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
     K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
     for bb in bounding_box_set:
@@ -81,21 +84,30 @@ def save_boxes(world, name, sample_path, transform, bounding_box_set, player_tra
             # to limit to drawing bounding boxes IN FRONT OF THE CAMERA
             forward_vec = player_transform.get_forward_vector()
             ray = bb.location - player_transform.location
-
+            
             if forward_vec.dot(ray) > 1:
                 # Cycle through the vertices
+                bbox_elem = ET.SubElement(root, "Vehicle")
                 verts = [v for v in bb.get_world_vertices(carla.Transform())]
+                counter = 0
                 for edge in edges:
                     # Join the vertices into edges
                     p1 = get_image_point(verts[edge[0]], K, world_2_camera)
                     p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
-                    # Draw the edges into the camera output
-                    writer.addObject('vehicle', p1[0], p1[1], p2[0], p2[1])
+                    
+                    bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
+                    
+                    bbox_elem_edge.set("x1", str(p1[0]))
+                    bbox_elem_edge.set("y1", str(p1[1]))
+                    bbox_elem_edge.set("x2", str(p2[0]))
+                    bbox_elem_edge.set("x2", str(p1[1]))
+                    
+                    counter += 1
 
     # Save the bounding boxes in the scene
-    filename = 'bbs.xml'
+    filename = 'static_bbs.xml'
     file_path = os.path.join(sample_path, filename)
-    writer.save(file_path)
+    tree.write(file_path)
             
                 
 
@@ -135,7 +147,7 @@ def depth_callback(data, name, episode_path):
         data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
     
     
-def lidar_callback(data, name, episode_path):
+def lidar_callback(data, name, episode_path, actors):
     sample_path = os.path.join(episode_path, str(data.frame))
     
     try:
@@ -148,6 +160,47 @@ def lidar_callback(data, name, episode_path):
         file_name = '%s.ply' % name
         full_path = os.path.join(sample_path, file_name)
         data.save_to_disk(full_path)
+        
+        actor_set = set()
+        
+        # Get unique actors from lidar data
+        for point in data:
+            if point.object_idx:
+                actor_set.add(point.object_idx)
+        
+        world_2_camera = np.array(data.transform.get_inverse_matrix())
+        edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
+        K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
+        
+        root = ET.Element("DynamicBoundingBoxes")
+        tree = ET.ElementTree(root)
+        
+        for actor_id in actor_set:
+            actor = actors.find(actor_id)
+            
+            bbox_elem = ET.SubElement(root, str(type(actor)))
+
+            bb = actor.bounding_box
+            verts = [v for v in bb.get_world_vertices(carla.Transform())]
+            counter = 0
+            for edge in edges:
+                    # Join the vertices into edges
+                    p1 = get_image_point(verts[edge[0]], K, world_2_camera)
+                    p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
+                    # Draw the edges into the camera output
+                    bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
+                    
+                    bbox_elem_edge.set("x1", str(p1[0]))
+                    bbox_elem_edge.set("y1", str(p1[1]))
+                    bbox_elem_edge.set("x2", str(p2[0]))
+                    bbox_elem_edge.set("x2", str(p1[1]))
+                    
+                    counter += 1
+        
+        # Save the bounding boxes in the scene
+        filename = 'dynamic_bbs.xml'
+        file_path = os.path.join(sample_path, filename)
+        tree.write(file_path)
     
 
     
@@ -325,10 +378,13 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
                     
                     s_lidar_bp = bp_library.find('sensor.lidar.ray_cast_semantic')
                     s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
-                    transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8))
+                    transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=180.0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
                     
-                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path)).start()
+                    s_lidar.horizontal_fov = 90.0
+                    s_lidar.range = 50.0
+                    
+                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path, world.world.get_actors())).start()
                     s_lidar.listen(lid_callback)
                     
                     first_tick = False
