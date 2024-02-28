@@ -28,7 +28,11 @@ CAMERA_X = config.CAMERA_X
 CAMERA_Y = config.CAMERA_Y
 DATA_PATH = config.DATA_PATH
 CAMERA_FOV = config.CAMERA_FOV
-CONFIG_INI_PATH = config.CONFIG_INI_PATH
+
+EXTERNAL_BEHAVIOR = config.EXTERNAL_BEHAVIOR
+EGO_BEHAVIOR = config.EGO_BEHAVIOR
+WEATHER = config.WEATHER
+MAP = config.MAP
 
 def build_projection_matrix(w, h, fov):
     focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
@@ -208,14 +212,28 @@ def prep_episode(client, args, episode_name): # uses code from automatic_control
         
         
         #sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=vehicle)
+        # Create data paths and directories
         ts = datetime.datetime.now()
         data_path = os.path.join(DATA_PATH) 
         episode_path = os.path.join(data_path, episode_name)
-        episode_path = episode_path + '-' + str(ts).replace(':', '-').replace('.', '-').replace(' ', '_')
-        os.mkdir(episode_path)
+        internal_path = os.path.join(episode_path, EGO_BEHAVIOR)
+        output_path = os.path.join(internal_path, str(ts).replace(':', '-').replace('.', '-').replace(' ', '_'))
         
-        with open(os.path.join(CONFIG_INI_PATH), 'r') as source, open(os.path.join(episode_path, "config.ini"), 'w') as dest:
-            config = source.read()
+        if not os.path.exists(episode_path):
+            os.mkdir(episode_path)
+        
+        if not os.path.exists(internal_path):
+            os.mkdir(internal_path)
+        
+        os.mkdir(output_path)
+        
+        # Store config in data directories
+        with open(os.path.join(episode_path, "episode_config.txt"), 'w') as dest:
+            config = "External_behavior = " + EXTERNAL_BEHAVIOR + "\nMap = " + MAP + "\nWeather = " + str(WEATHER)
+            dest.write(config)
+        
+        with open(os.path.join(output_path, "internal_config.txt"), 'w') as dest:
+            config = "Ego_behavior = " + EGO_BEHAVIOR
             dest.write(config)
                 
        
@@ -249,20 +267,16 @@ def prep_episode(client, args, episode_name): # uses code from automatic_control
         depth = world.world.spawn_actor(depth_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
         
         
-        l_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'left_rgb', episode_path, world, world.world.get_level_bbs(), world.player.get_transform())).start()
-        r_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'right_rgb', episode_path, None, None, None)).start()
-        l_depth_callback = lambda image: threading.Thread(target = depth_callback, args = (image, 'left_depth', episode_path)).start()
-        # lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', episode_path)).start()
+        l_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'left_rgb', output_path, world, world.world.get_level_bbs(), world.player.get_transform())).start()
+        r_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'right_rgb', output_path, None, None, None)).start()
+        l_depth_callback = lambda image: threading.Thread(target = depth_callback, args = (image, 'left_depth', output_path)).start()
         
         l_rgb.listen(l_rgb_callback)
         r_rgb.listen(r_rgb_callback)
         depth.listen(l_depth_callback)
-        # s_lidar.listen(lid_callback)
         
         
-        sensors = [l_rgb, r_rgb, depth]#, lidar]
-        
-        
+        sensors = [l_rgb, r_rgb, depth]
         
         
         
@@ -271,7 +285,9 @@ def prep_episode(client, args, episode_name): # uses code from automatic_control
         
         
         
-        return world, controller, display, hud, agent, traffic_manager, sensors, episode_path
+        
+        
+        return world, controller, display, hud, agent, traffic_manager, sensors, output_path
             
     except Exception as e:
         print('Something went wrong setting up the simulation episode:')
@@ -288,7 +304,7 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
     cameras set. Calls prep_episode() to spawn player and set cameras.
     """
 
-    world, controller, display, hud, agent, traffic_manager, sensors, episode_path = prep_episode(client, args, episode_name)
+    world, controller, display, hud, agent, traffic_manager, sensors, output_path = prep_episode(client, args, episode_name)
 
     try:
         spawn_points = world.map.get_spawn_points()
@@ -312,7 +328,7 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
                     transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
                     
-                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', episode_path)).start()
+                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path)).start()
                     s_lidar.listen(lid_callback)
                     
                     first_tick = False
@@ -520,29 +536,22 @@ def main():
     
     args.width, args.height = [int(x) for x in args.res.split('x')]
     
-    # Read arguments from config.ini
-    args_config = configparser.ConfigParser()
-    args_config.read(os.path.join(CONFIG_INI_PATH))
-    
-    print("Weather", args_config['Settings']['weather'])
-    
+    # List of weather presets
     weathers = [carla.WeatherParameters.Default, carla.WeatherParameters.ClearNoon, carla.WeatherParameters.CloudyNoon, carla.WeatherParameters.WetNoon, carla.WeatherParameters.WetCloudyNoon, carla.WeatherParameters.MidRainyNoon, carla.WeatherParameters.HardRainNoon, carla.WeatherParameters.SoftRainNoon, carla.WeatherParameters.ClearSunset, carla.WeatherParameters.CloudySunset, carla.WeatherParameters.WetSunset, carla.WeatherParameters.WetCloudySunset, carla.WeatherParameters.MidRainSunset, carla.WeatherParameters.HardRainSunset, carla.WeatherParameters.SoftRainSunset]
     
+    # Construct episode name based on config
     episode_name = ''
     
-    if 'Settings' in args_config:
-        if 'external_behavior' in args_config['Settings']:
-            args.external_behavior = args_config['Settings']['external_behavior']
-            episode_name = episode_name + args_config['Settings']['external_behavior']
-        if 'ego_behavior' in args_config['Settings']:
-            args.behavior = args_config['Settings']['ego_behavior']
-            episode_name = episode_name + '_' + args_config['Settings']['ego_behavior']
-        if 'weather' in args_config['Settings']:
-            args.weather = weathers[int(args_config['Settings']['weather'])]
-            episode_name = episode_name + '_' + args_config['Settings']['weather']
-        if 'map' in args_config['Settings']:
-            args.map = args_config['Settings']['map']
-            episode_name = episode_name + '_' + args_config['Settings']['map']
+    args.behavior = EGO_BEHAVIOR
+    
+    args.external_behavior = EXTERNAL_BEHAVIOR
+    episode_name = episode_name + EXTERNAL_BEHAVIOR
+
+    args.weather = weathers[WEATHER]
+    episode_name = episode_name + '_w' + str(WEATHER)
+
+    args.map = MAP
+    episode_name = episode_name + '_' + MAP
     
     log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
