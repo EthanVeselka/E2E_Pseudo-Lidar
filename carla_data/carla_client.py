@@ -510,6 +510,8 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
             
             for sensor in sensors:
                 sensor.destroy()
+                
+            s_lidar.destroy()
 
             world.destroy()
 
