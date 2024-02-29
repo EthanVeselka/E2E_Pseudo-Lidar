@@ -174,7 +174,7 @@ def save_boxes(world, name, sample_path, transform, player_transform):
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
                     bbox_elem_edge.set("x2", str(p2[0]))
-                    bbox_elem_edge.set("x2", str(p1[1]))
+                    bbox_elem_edge.set("y2", str(p1[1]))
                     
                     counter += 1
                     
@@ -270,7 +270,7 @@ def lidar_callback(data, name, episode_path, actors):
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
                     bbox_elem_edge.set("x2", str(p2[0]))
-                    bbox_elem_edge.set("x2", str(p1[1]))
+                    bbox_elem_edge.set("y2", str(p1[1]))
                     
                     counter += 1
         
