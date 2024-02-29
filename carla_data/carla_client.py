@@ -35,6 +35,7 @@ EGO_BEHAVIOR = config.EGO_BEHAVIOR
 WEATHER = config.WEATHER
 MAP = config.MAP
 
+
 def build_projection_matrix(w, h, fov):
     focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
     K = np.identity(3)
@@ -79,16 +80,47 @@ def indent(elem, level=0):
     else:
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
+            
 
-def save_boxes(world, name, sample_path, transform, bounding_box_set, player_transform):
+
+def save_boxes(world, name, sample_path, transform, player_transform):
     # Create the XML structure
     root = ET.Element("StaticBoundingBoxes")
     tree = ET.ElementTree(root)
+    #bbs = world.world.get_level_bbs(carla.CityObjectLabel.Car)
+    
+    #print(bounding_box_set)
+    
+    filters = [
+        carla.CityObjectLabel.Buildings,
+        carla.CityObjectLabel.Fences,
+        carla.CityObjectLabel.Poles,
+        carla.CityObjectLabel.RoadLines,
+        carla.CityObjectLabel.Roads,
+        carla.CityObjectLabel.Sidewalks,
+        carla.CityObjectLabel.Vegetation,
+        carla.CityObjectLabel.Walls,
+        carla.CityObjectLabel.Sky,
+        carla.CityObjectLabel.Ground,
+        carla.CityObjectLabel.Bridge,
+        carla.CityObjectLabel.RailTrack,
+        carla.CityObjectLabel.GuardRail,
+        carla.CityObjectLabel.Water,
+        carla.CityObjectLabel.Terrain,
+        ]
+
     
     world_2_camera = np.array(transform.get_inverse_matrix())
     edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
     K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
-    for bb in bounding_box_set:
+    bounding_box_set = []
+    
+    for obj in filters:
+        new_bbs = world.world.get_level_bbs(obj)
+        for bb in new_bbs:
+            bounding_box_set.append((obj, bb))
+    count = 0
+    for label, bb in bounding_box_set:
 
         # Filter for distance from ego vehicle
         if bb.location.distance(player_transform.location) < 50:
@@ -103,9 +135,34 @@ def save_boxes(world, name, sample_path, transform, bounding_box_set, player_tra
             if forward_vec.dot(ray) > 1:
                 # Cycle through the vertices
                 bbox_elem = ET.SubElement(root, "BoundingBox")
-                bbox_elem.set("class", "Vehicle")
+                bbox_elem.set("class", str(label))
                 verts = [v for v in bb.get_world_vertices(carla.Transform())]
                 counter = 0
+                
+                p1 = get_image_point(bb.location, K, world_2_camera)
+                verts = [v for v in bb.get_world_vertices(player_transform)]
+                x_max = -10000
+                x_min = 10000
+                y_max = -10000
+                y_min = 10000
+                for vert in verts:
+                    p = get_image_point(vert, K, world_2_camera)
+                    if p[0] > x_max:
+                        x_max = p[0]
+                    if p[0] < x_min:
+                        x_min = p[0]
+                    if p[1] > y_max:
+                        y_max = p[1]
+                    if p[1] < y_min:
+                        y_min = p[1]
+
+                # Add the object to the frame (ensure it is inside the image)
+                on_screen = ET.SubElement(bbox_elem, "on_screen")
+                count += 1
+                if not (x_min > 0 and x_max < CAMERA_X and y_min > 0 and y_max < CAMERA_Y):
+                    on_screen.set('on_screen', 'true')
+                else:
+                    on_screen.set('on_screen', 'false')
                 
                 for edge in edges:
                     # Join the vertices into edges
@@ -120,6 +177,7 @@ def save_boxes(world, name, sample_path, transform, bounding_box_set, player_tra
                     bbox_elem_edge.set("x2", str(p1[1]))
                     
                     counter += 1
+                    
 
     # Save the bounding boxes in the scene
     filename = 'static_bbs.xml'
@@ -129,7 +187,7 @@ def save_boxes(world, name, sample_path, transform, bounding_box_set, player_tra
             
                 
 
-def rgb_callback(data, name, episode_path, world, bounding_box_set, player_transform):
+def rgb_callback(data, name, episode_path, world, player_transform):
     sample_path = os.path.join(episode_path, str(data.frame))
     #print(sample_path)
     
@@ -146,7 +204,7 @@ def rgb_callback(data, name, episode_path, world, bounding_box_set, player_trans
         data.save_to_disk(full_path)
         
         if name == 'left_rgb':
-            save_boxes(world, name, sample_path, data.transform, bounding_box_set, player_transform)
+            save_boxes(world, name, sample_path, data.transform, player_transform)
     
 def depth_callback(data, name, episode_path):
     sample_path = os.path.join(episode_path, str(data.frame))
@@ -340,8 +398,8 @@ def prep_episode(client, args, episode_name): # uses code from automatic_control
         depth = world.world.spawn_actor(depth_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
         
         
-        l_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'left_rgb', output_path, world, world.world.get_level_bbs(), world.player.get_transform())).start()
-        r_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'right_rgb', output_path, None, None, None)).start()
+        l_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'left_rgb', output_path, world, world.player.get_transform())).start()
+        r_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'right_rgb', output_path, None, None)).start()
         l_depth_callback = lambda image: threading.Thread(target = depth_callback, args = (image, 'left_depth', output_path)).start()
         
         l_rgb.listen(l_rgb_callback)
