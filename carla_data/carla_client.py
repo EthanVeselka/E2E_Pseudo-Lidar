@@ -140,11 +140,7 @@ def save_boxes(world, name, sample_path, transform, player_transform):
                 verts = [v for v in bb.get_world_vertices(carla.Transform())]
                 counter = 0
                 
-                #bbs1 = [(new_bb.x, new_bb.y, new_bb.z) for new_bb in bb.get_world_vertices(player_transform)]
-                #bbs2 = [(new_bb.x, new_bb.y, new_bb.z) for new_bb in bb.get_world_vertices(carla.Transform())]
-                
-                #print('player_transform:', bbs1)
-                #print('carla transform():', bbs2)
+                p1 = get_image_point(bb.location, K, world_2_camera)
                 x_max = -10000
                 x_min = 10000
                 y_max = -10000
@@ -226,7 +222,7 @@ def depth_callback(data, name, episode_path):
         data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
     
     
-def lidar_callback(data, name, episode_path, actors):
+def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
     sample_path = os.path.join(episode_path, str(data.frame))
     
     try:
@@ -260,8 +256,8 @@ def lidar_callback(data, name, episode_path, actors):
             bbox_elem = ET.SubElement(root, "BoundingBox")
             bbox_elem.set("class", str(type(actor)))
 
-            bb = actor.bounding_box
-            verts = [v for v in bb.get_world_vertices(carla.Transform())]
+            bb = bb_transform_dict[actor_id][0]
+            verts = [v for v in bb.get_world_vertices(bb_transform_dict[actor_id][1])]
             counter = 0
             for edge in edges:
                     # Join the vertices into edges
@@ -464,8 +460,9 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
                     
                     s_lidar.horizontal_fov = 90.0
                     s_lidar.range = 50.0
+                    s_lidar.channels = 1024
                     
-                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path, world.world.get_actors())).start()
+                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path, world.world.get_actors(), {actor.id: (actor.bounding_box, actor.get_transform()) for actor in world.world.get_actors()})).start()
                     s_lidar.listen(lid_callback)
                     
                     first_tick = False
@@ -513,6 +510,8 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
             
             for sensor in sensors:
                 sensor.destroy()
+                
+            s_lidar.destroy()
 
             world.destroy()
 
