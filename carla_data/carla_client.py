@@ -140,7 +140,6 @@ def save_boxes(world, name, sample_path, transform, player_transform):
                 counter = 0
                 
                 p1 = get_image_point(bb.location, K, world_2_camera)
-                verts = [v for v in bb.get_world_vertices(player_transform)]
                 x_max = -10000
                 x_min = 10000
                 y_max = -10000
@@ -174,7 +173,7 @@ def save_boxes(world, name, sample_path, transform, player_transform):
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
                     bbox_elem_edge.set("x2", str(p2[0]))
-                    bbox_elem_edge.set("y2", str(p1[1]))
+                    bbox_elem_edge.set("y2", str(p2[1]))
                     
                     counter += 1
                     
@@ -223,7 +222,7 @@ def depth_callback(data, name, episode_path):
         data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
     
     
-def lidar_callback(data, name, episode_path, actors):
+def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
     sample_path = os.path.join(episode_path, str(data.frame))
     
     try:
@@ -257,8 +256,8 @@ def lidar_callback(data, name, episode_path, actors):
             bbox_elem = ET.SubElement(root, "BoundingBox")
             bbox_elem.set("class", str(type(actor)))
 
-            bb = actor.bounding_box
-            verts = [v for v in bb.get_world_vertices(carla.Transform())]
+            bb = bb_transform_dict[actor_id][0]
+            verts = [v for v in bb.get_world_vertices(bb_transform_dict[actor_id][1])]
             counter = 0
             for edge in edges:
                     # Join the vertices into edges
@@ -270,7 +269,7 @@ def lidar_callback(data, name, episode_path, actors):
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
                     bbox_elem_edge.set("x2", str(p2[0]))
-                    bbox_elem_edge.set("y2", str(p1[1]))
+                    bbox_elem_edge.set("y2", str(p2[1]))
                     
                     counter += 1
         
@@ -461,8 +460,9 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
                     
                     s_lidar.horizontal_fov = 90.0
                     s_lidar.range = 50.0
+                    s_lidar.channels = 1024
                     
-                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path, world.world.get_actors())).start()
+                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path, world.world.get_actors(), {actor.id: (actor.bounding_box, actor.get_transform()) for actor in world.world.get_actors()})).start()
                     s_lidar.listen(lid_callback)
                     
                     first_tick = False
