@@ -84,7 +84,7 @@ def indent(elem, level=0):
 
 
 def save_boxes(world, name, sample_path, transform, player_transform):
-    print(world.player.get_transform().location)
+    # print(world.player.get_transform().location)
     # Create the XML structure
     root = ET.Element("StaticBoundingBoxes")
     tree = ET.ElementTree(root)
@@ -221,6 +221,14 @@ def depth_callback(data, name, episode_path):
         full_path = os.path.join(sample_path, file_name)
         data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
     
+
+def flip_axis(point, mirror):
+    if mirror[0]:
+        dist = CAMERA_X/2 - point[0]
+        point[0] = point[0] + dist*2
+    if mirror[1]:
+        dist = CAMERA_Y/2 - point[1]
+        point[1] = point[1] + dist*2
     
 def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
     sample_path = os.path.join(episode_path, str(data.frame))
@@ -247,6 +255,8 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
         edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
         K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
         
+        mirror = (0, 0)
+        
         root = ET.Element("DynamicBoundingBoxes")
         tree = ET.ElementTree(root)
         
@@ -255,16 +265,25 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             
             bbox_elem = ET.SubElement(root, "BoundingBox")
             bbox_elem.set("class", str(type(actor)))
+            
+            if "carla.libcarla.TrafficLight" in str(type(actor)):
+                mirror = (1, 1)
+            if "carla.libcarla.Vehicle" in str(type(actor)):
+                mirror = (1, 0)
 
             bb = bb_transform_dict[actor_id][0]
             verts = [v for v in bb.get_world_vertices(bb_transform_dict[actor_id][1])]
             counter = 0
+            
             for edge in edges:
                     # Join the vertices into edges
                     p1 = get_image_point(verts[edge[0]], K, world_2_camera)
                     p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
                     # Draw the edges into the camera output
                     bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
+                    
+                    flip_axis(p1, mirror)
+                    flip_axis(p2, mirror)
                     
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
