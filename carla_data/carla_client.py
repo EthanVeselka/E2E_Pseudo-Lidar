@@ -84,6 +84,7 @@ def indent(elem, level=0):
 
 
 def save_boxes(world, name, sample_path, transform, player_transform):
+    print(world.player.get_transform().location)
     # Create the XML structure
     root = ET.Element("StaticBoundingBoxes")
     tree = ET.ElementTree(root)
@@ -139,8 +140,11 @@ def save_boxes(world, name, sample_path, transform, player_transform):
                 verts = [v for v in bb.get_world_vertices(carla.Transform())]
                 counter = 0
                 
-                p1 = get_image_point(bb.location, K, world_2_camera)
-                verts = [v for v in bb.get_world_vertices(player_transform)]
+                #bbs1 = [(new_bb.x, new_bb.y, new_bb.z) for new_bb in bb.get_world_vertices(player_transform)]
+                #bbs2 = [(new_bb.x, new_bb.y, new_bb.z) for new_bb in bb.get_world_vertices(carla.Transform())]
+                
+                #print('player_transform:', bbs1)
+                #print('carla transform():', bbs2)
                 x_max = -10000
                 x_min = 10000
                 y_max = -10000
@@ -174,7 +178,7 @@ def save_boxes(world, name, sample_path, transform, player_transform):
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
                     bbox_elem_edge.set("x2", str(p2[0]))
-                    bbox_elem_edge.set("x2", str(p1[1]))
+                    bbox_elem_edge.set("y2", str(p2[1]))
                     
                     counter += 1
                     
@@ -184,7 +188,6 @@ def save_boxes(world, name, sample_path, transform, player_transform):
     file_path = os.path.join(sample_path, filename)
     indent(root)
     tree.write(file_path)
-            
                 
 
 def rgb_callback(data, name, episode_path, world, player_transform):
@@ -270,7 +273,7 @@ def lidar_callback(data, name, episode_path, actors):
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
                     bbox_elem_edge.set("x2", str(p2[0]))
-                    bbox_elem_edge.set("x2", str(p1[1]))
+                    bbox_elem_edge.set("y2", str(p2[1]))
                     
                     counter += 1
         
