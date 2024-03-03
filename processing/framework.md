@@ -14,7 +14,7 @@ returns DataLoader(PLDataset)
 
 ## Cleaning
 
-Run clean.py or processing with clean=True to clean data if raw
+Run clean.py to clean data if raw
 
 ## Sample Config file 
 

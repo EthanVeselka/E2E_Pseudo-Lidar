@@ -5,9 +5,10 @@ import numpy as np
 from torch.utils.data import Dataset
 
 
-import Normalizer
-import Reader
-import utils
+from processing import normalizer
+from processing import readers
+
+# import utils
 
 
 # ---WARNING: INCOMPLETE---#
