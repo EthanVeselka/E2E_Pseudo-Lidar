@@ -39,6 +39,8 @@ extensions = [
     "sphinx.ext.napoleon",
 ]
 
+# autodoc_mock_imports = ["configparser"]
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
