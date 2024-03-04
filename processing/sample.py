@@ -6,7 +6,7 @@ import configparser
 
 
 # ---WARNING: INCOMPLETE---#
-def sample(root, sample_size, config="config.ini", save_file_path="/output"):
+def sample(root, config="config.ini", save_file_path="./output"):
     """
     Sample from root directory using config, returns listfiles for train/test splits
 
@@ -23,6 +23,7 @@ def sample(root, sample_size, config="config.ini", save_file_path="/output"):
 
     ALL = conf["General"]["ALL"]
     SPLITS = conf["General"]["SPLITS"]
+    SAMPLE_SIZE = conf["General"]["SAMPLE"]
     DATA_PATH = conf["Path"]["DATA_PATH"]
     EGO_BEHAVIOR = conf["Internal Variables"]["EGO_BEHAVIOR"]
     EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
@@ -30,7 +31,18 @@ def sample(root, sample_size, config="config.ini", save_file_path="/output"):
     MAP = conf["External Variables"]["MAP"]
 
     # Check values
-    assert sum(SPLITS) == 1
+    try:
+        assert ALL in ["True", "False"]
+        assert sum(SPLITS) == 1
+        assert SAMPLE_SIZE > 0
+        assert os.path.exists(DATA_PATH)
+        if not ALL:
+            assert EGO_BEHAVIOR in ["normal", "aggressive", "cautious"]
+            assert EXTERNAL_BEHAVIOR in ["normal", "aggressive", "cautious"]
+            assert WEATHER in [1, 2, 5, 8, 9, 12]
+            assert MAP in ["Town01", "Town02", "Town07"]
+    except AssertionError:
+        raise ValueError("Invalid configuration parameters. Please check config.ini.")
 
     frames = []
     os.chdir(DATA_PATH)
@@ -60,7 +72,7 @@ def sample(root, sample_size, config="config.ini", save_file_path="/output"):
                 frames.extend([frame for frame in os.listdir(curr_dir)])
 
     # randomly sample indices from directories
-    random_indices = random.sample(range(len(frames)), sample_size)
+    random_indices = random.sample(range(len(frames)), SAMPLE_SIZE)
     random.shuffle(random_indices)
 
     train = random_indices[: SPLITS[0]]
