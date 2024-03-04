@@ -263,13 +263,17 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
         for actor_id in actor_set:
             actor = actors.find(actor_id)
             
+            # Filter ego vehicle out of bounding box output
+            if (actor.attributes.get('role_name') == 'hero'):
+                continue
+            
             bbox_elem = ET.SubElement(root, "BoundingBox")
             bbox_elem.set("class", str(type(actor)))
             
-            if "carla.libcarla.TrafficLight" in str(type(actor)):
-                mirror = (1, 1)
-            if "carla.libcarla.Vehicle" in str(type(actor)):
-                mirror = (1, 0)
+            # if "carla.libcarla.TrafficLight" in str(type(actor)):
+            #     mirror = (1, 1)
+            # if "carla.libcarla.Vehicle" in str(type(actor)):
+            #     mirror = (1, 0)
 
             bb = bb_transform_dict[actor_id][0]
             verts = [v for v in bb.get_world_vertices(bb_transform_dict[actor_id][1])]
@@ -473,13 +477,15 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
                     bp_library = world.world.get_blueprint_library()
                     
                     s_lidar_bp = bp_library.find('sensor.lidar.ray_cast_semantic')
+                    s_lidar_bp.set_attribute('horizontal_fov', str(CAMERA_FOV))
+                    s_lidar_bp.set_attribute('range', str(50.0))
+                    s_lidar_bp.set_attribute('rotation_frequency', str(20.0))
                     s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
-                    transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=180.0, yaw=0.0, roll=0.0))
+                    s_lidar_bp.set_attribute('lower_fov', str(-30.0))
+                    s_lidar_bp.set_attribute('upper_fov', str(30.0))
+                    s_lidar_bp.set_attribute('channels', str(128.0))
+                    transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
-                    
-                    s_lidar.horizontal_fov = 90.0
-                    s_lidar.range = 50.0
-                    s_lidar.channels = 1024
                     
                     lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path, world.world.get_actors(), {actor.id: (actor.bounding_box, actor.get_transform()) for actor in world.world.get_actors()})).start()
                     s_lidar.listen(lid_callback)
