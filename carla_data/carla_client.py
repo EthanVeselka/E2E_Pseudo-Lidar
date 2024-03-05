@@ -6,9 +6,6 @@ import argparse
 import logging
 import pygame
 import random
-from agents.navigation.behavior_agent import BehaviorAgent 
-from agents.navigation.basic_agent import BasicAgent  
-from agents.navigation.constant_velocity_agent import ConstantVelocityAgent  
 import time
 import datetime
 import os
@@ -17,15 +14,20 @@ from pascal_voc_writer import Writer
 import xml.etree.ElementTree as ET
 import configparser
 import threading
+    
+from agents.navigation.behavior_agent import BehaviorAgent 
+from agents.navigation.basic_agent import BasicAgent  
+from agents.navigation.constant_velocity_agent import ConstantVelocityAgent  
 
 conf = configparser.ConfigParser()
 conf.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini"))
 
 CARLA_PYTHON_PATH = conf["Paths"]["CARLA_PYTHON_PATH"]
-DATA_PATH = conf["Paths"]["DATA_PATH"]
-
 if CARLA_PYTHON_PATH not in sys.path:
     sys.path.insert(0,CARLA_PYTHON_PATH)
+    
+CARLA_PYTHON_PATH = conf["Paths"]["CARLA_PYTHON_PATH"]
+DATA_PATH = conf["Paths"]["DATA_PATH"]
 
 POLL_RATE = float(conf["Settings"]["POLL_RATE"])
 CAMERA_X = int(conf["Settings"]["CAMERA_X"])
