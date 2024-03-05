@@ -1,11 +1,4 @@
 import sys
-import config
-
-CARLA_PYTHON_PATH = config.CARLA_PYTHON_PATH
-
-if CARLA_PYTHON_PATH not in sys.path:
-    sys.path.insert(0, CARLA_PYTHON_PATH)
-
 import carla
 import automatic_control as ac  # Taken from Carla's example code
 import generate_traffic as gt  # Taken from Carla's example code
@@ -13,9 +6,6 @@ import argparse
 import logging
 import pygame
 import random
-from agents.navigation.behavior_agent import BehaviorAgent
-from agents.navigation.basic_agent import BasicAgent
-from agents.navigation.constant_velocity_agent import ConstantVelocityAgent
 import time
 import datetime
 import os
@@ -24,17 +14,31 @@ from pascal_voc_writer import Writer
 import xml.etree.ElementTree as ET
 import configparser
 import threading
+    
+from agents.navigation.behavior_agent import BehaviorAgent 
+from agents.navigation.basic_agent import BasicAgent  
+from agents.navigation.constant_velocity_agent import ConstantVelocityAgent  
 
-POLL_RATE = config.POLL_RATE
-CAMERA_X = config.CAMERA_X
-CAMERA_Y = config.CAMERA_Y
-DATA_PATH = config.DATA_PATH
-CAMERA_FOV = config.CAMERA_FOV
+conf = configparser.ConfigParser()
+conf.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini"))
 
-EXTERNAL_BEHAVIOR = config.EXTERNAL_BEHAVIOR
-EGO_BEHAVIOR = config.EGO_BEHAVIOR
-WEATHER = config.WEATHER
-MAP = config.MAP
+CARLA_PYTHON_PATH = conf["Paths"]["CARLA_PYTHON_PATH"]
+if CARLA_PYTHON_PATH not in sys.path:
+    sys.path.insert(0,CARLA_PYTHON_PATH)
+    
+CARLA_PYTHON_PATH = conf["Paths"]["CARLA_PYTHON_PATH"]
+DATA_PATH = conf["Paths"]["DATA_PATH"]
+
+POLL_RATE = float(conf["Settings"]["POLL_RATE"])
+CAMERA_X = int(conf["Settings"]["CAMERA_X"])
+CAMERA_Y = int(conf["Settings"]["CAMERA_Y"])
+CAMERA_FOV = int(conf["Settings"]["CAMERA_FOV"])
+
+EGO_BEHAVIOR = conf["Internal Variables"]["EGO_BEHAVIOR"]
+EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
+WEATHER = int(conf["External Variables"]["WEATHER"])
+MAP = conf["External Variables"]["MAP"]
+
 
 
 def build_projection_matrix(w, h, fov):
@@ -68,11 +72,51 @@ def get_image_point(loc, K, w2c):
     return point_img[0:2]
 
 
-def save_boxes(world, name, sample_path, transform, bounding_box_set, player_transform):
+def indent(elem, level=0):
+    i = "\n" + level*"  "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+            
+
+
+def save_boxes(world, name, sample_path, transform, player_transform):
+    # print(world.player.get_transform().location)
     # Create the XML structure
     root = ET.Element("StaticBoundingBoxes")
     tree = ET.ElementTree(root)
+    #bbs = world.world.get_level_bbs(carla.CityObjectLabel.Car)
+    
+    #print(bounding_box_set)
+    
+    filters = [
+        carla.CityObjectLabel.Buildings,
+        carla.CityObjectLabel.Fences,
+        carla.CityObjectLabel.Poles,
+        carla.CityObjectLabel.RoadLines,
+        carla.CityObjectLabel.Roads,
+        carla.CityObjectLabel.Sidewalks,
+        carla.CityObjectLabel.Vegetation,
+        carla.CityObjectLabel.Walls,
+        carla.CityObjectLabel.Sky,
+        carla.CityObjectLabel.Ground,
+        carla.CityObjectLabel.Bridge,
+        carla.CityObjectLabel.RailTrack,
+        carla.CityObjectLabel.GuardRail,
+        carla.CityObjectLabel.Water,
+        carla.CityObjectLabel.Terrain,
+        ]
 
+    
     world_2_camera = np.array(transform.get_inverse_matrix())
     edges = [
         [0, 1],
@@ -89,7 +133,14 @@ def save_boxes(world, name, sample_path, transform, bounding_box_set, player_tra
         [7, 3],
     ]
     K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
-    for bb in bounding_box_set:
+    bounding_box_set = []
+    
+    for obj in filters:
+        new_bbs = world.world.get_level_bbs(obj)
+        for bb in new_bbs:
+            bounding_box_set.append((obj, bb))
+    count = 0
+    for label, bb in bounding_box_set:
 
         # Filter for distance from ego vehicle
         if bb.location.distance(player_transform.location) < 50:
@@ -103,9 +154,35 @@ def save_boxes(world, name, sample_path, transform, bounding_box_set, player_tra
 
             if forward_vec.dot(ray) > 1:
                 # Cycle through the vertices
-                bbox_elem = ET.SubElement(root, "Vehicle")
+                bbox_elem = ET.SubElement(root, "BoundingBox")
+                bbox_elem.set("class", str(label))
                 verts = [v for v in bb.get_world_vertices(carla.Transform())]
                 counter = 0
+                
+                p1 = get_image_point(bb.location, K, world_2_camera)
+                x_max = -10000
+                x_min = 10000
+                y_max = -10000
+                y_min = 10000
+                for vert in verts:
+                    p = get_image_point(vert, K, world_2_camera)
+                    if p[0] > x_max:
+                        x_max = p[0]
+                    if p[0] < x_min:
+                        x_min = p[0]
+                    if p[1] > y_max:
+                        y_max = p[1]
+                    if p[1] < y_min:
+                        y_min = p[1]
+
+                # Add the object to the frame (ensure it is inside the image)
+                on_screen = ET.SubElement(bbox_elem, "on_screen")
+                count += 1
+                if not (x_min > 0 and x_max < CAMERA_X and y_min > 0 and y_max < CAMERA_Y):
+                    on_screen.set('on_screen', 'true')
+                else:
+                    on_screen.set('on_screen', 'false')
+                
                 for edge in edges:
                     # Join the vertices into edges
                     p1 = get_image_point(verts[edge[0]], K, world_2_camera)
@@ -116,17 +193,19 @@ def save_boxes(world, name, sample_path, transform, bounding_box_set, player_tra
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
                     bbox_elem_edge.set("x2", str(p2[0]))
-                    bbox_elem_edge.set("x2", str(p1[1]))
-
+                    bbox_elem_edge.set("y2", str(p2[1]))
+                    
                     counter += 1
+                    
 
     # Save the bounding boxes in the scene
     filename = "static_bbs.xml"
     file_path = os.path.join(sample_path, filename)
+    indent(root)
     tree.write(file_path)
+                
 
-
-def rgb_callback(data, name, episode_path, world, bounding_box_set, player_transform):
+def rgb_callback(data, name, episode_path, world, player_transform):
     sample_path = os.path.join(episode_path, str(data.frame))
     # print(sample_path)
 
@@ -141,18 +220,10 @@ def rgb_callback(data, name, episode_path, world, bounding_box_set, player_trans
         file_name = "%s.png" % name
         full_path = os.path.join(sample_path, file_name)
         data.save_to_disk(full_path)
-
-        if name == "left_rgb":
-            save_boxes(
-                world,
-                name,
-                sample_path,
-                data.transform,
-                bounding_box_set,
-                player_transform,
-            )
-
-
+        
+        if name == 'left_rgb':
+            save_boxes(world, name, sample_path, data.transform, player_transform)
+    
 def depth_callback(data, name, episode_path):
     sample_path = os.path.join(episode_path, str(data.frame))
     # print(sample_path)
@@ -168,9 +239,8 @@ def depth_callback(data, name, episode_path):
         file_name = "%s.png" % name
         full_path = os.path.join(sample_path, file_name)
         data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
-
-
-def lidar_callback(data, name, episode_path, actors):
+    
+def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
     sample_path = os.path.join(episode_path, str(data.frame))
 
     try:
@@ -213,35 +283,40 @@ def lidar_callback(data, name, episode_path, actors):
 
         for actor_id in actor_set:
             actor = actors.find(actor_id)
+            
+            # Filter ego vehicle out of bounding box output
+            if (actor.attributes.get('role_name') == 'hero'):
+                continue
+            
+            bbox_elem = ET.SubElement(root, "BoundingBox")
+            bbox_elem.set("class", str(type(actor)))
 
-            bbox_elem = ET.SubElement(root, str(type(actor)))
-
-            bb = actor.bounding_box
-            verts = [v for v in bb.get_world_vertices(carla.Transform())]
+            bb = bb_transform_dict[actor_id][0]
+            verts = [v for v in bb.get_world_vertices(bb_transform_dict[actor_id][1])]
             counter = 0
+            
             for edge in edges:
-                # Join the vertices into edges
-                p1 = get_image_point(verts[edge[0]], K, world_2_camera)
-                p2 = get_image_point(verts[edge[1]], K, world_2_camera)
-                # Draw the edges into the camera output
-                bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
-
-                bbox_elem_edge.set("x1", str(p1[0]))
-                bbox_elem_edge.set("y1", str(p1[1]))
-                bbox_elem_edge.set("x2", str(p2[0]))
-                bbox_elem_edge.set("x2", str(p1[1]))
-
-                counter += 1
-
+                    # Join the vertices into edges
+                    p1 = get_image_point(verts[edge[0]], K, world_2_camera)
+                    p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
+                    # Draw the edges into the camera output
+                    bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
+                    
+                    bbox_elem_edge.set("x1", str(p1[0]))
+                    bbox_elem_edge.set("y1", str(p1[1]))
+                    bbox_elem_edge.set("x2", str(p2[0]))
+                    bbox_elem_edge.set("y2", str(p2[1]))
+                    
+                    counter += 1
+        
         # Save the bounding boxes in the scene
         filename = "dynamic_bbs.xml"
         file_path = os.path.join(sample_path, filename)
+        indent(root)
         tree.write(file_path)
 
 
-def prep_episode(
-    client, args, episode_name
-):  # uses code from automatic_control.py and generate_traffic.py
+def prep_episode(client, args, iteration_name, episode_name): # uses code from automatic_control.py and generate_traffic.py
     """
     Does setup for a simulation episode, including: setup cameras, setup pygame
     window, setup player and player behavior
@@ -297,33 +372,24 @@ def prep_episode(
         ts = datetime.datetime.now()
         data_path = os.path.join(DATA_PATH)
         episode_path = os.path.join(data_path, episode_name)
-        internal_path = os.path.join(episode_path, EGO_BEHAVIOR)
-        output_path = os.path.join(
-            internal_path, str(ts).replace(":", "-").replace(".", "-").replace(" ", "_")
-        )
-
+        iteration_path = os.path.join(episode_path, iteration_name)
+        output_path = os.path.join(iteration_path, str(ts).replace(':', '-').replace('.', '-').replace(' ', '_'))
+        
         if not os.path.exists(episode_path):
             os.mkdir(episode_path)
-
-        if not os.path.exists(internal_path):
-            os.mkdir(internal_path)
-
+        
+        if not os.path.exists(iteration_path):
+            os.mkdir(iteration_path)
+        
         os.mkdir(output_path)
 
         # Store config in data directories
-        with open(os.path.join(episode_path, "episode_config.txt"), "w") as dest:
-            config = (
-                "External_behavior = "
-                + EXTERNAL_BEHAVIOR
-                + "\nMap = "
-                + MAP
-                + "\nWeather = "
-                + str(WEATHER)
-            )
+        with open(os.path.join(episode_path, "config.ini"), 'w') as dest:
+            config = "[Internal Variables]\nEGO_BEHAVIOR = " + EGO_BEHAVIOR
             dest.write(config)
-
-        with open(os.path.join(output_path, "internal_config.txt"), "w") as dest:
-            config = "Ego_behavior = " + EGO_BEHAVIOR
+        
+        with open(os.path.join(output_path, "config.ini"), 'w') as dest:
+            config = "[External Variables]\nEXTERNAL_BEHAVIOR = " + EXTERNAL_BEHAVIOR + "\nWEATHER = " + str(WEATHER) + "\nMAP = " + MAP
             dest.write(config)
 
         bp_library = world.world.get_blueprint_library()
@@ -359,32 +425,13 @@ def prep_episode(
         depth_bp.set_attribute("sensor_tick", str(1 / POLL_RATE))
 
         transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8))
-        depth = world.world.spawn_actor(
-            depth_bp,
-            transform,
-            attach_to=world.player,
-            attachment_type=carla.AttachmentType.Rigid,
-        )
-
-        l_rgb_callback = lambda image: threading.Thread(
-            target=rgb_callback,
-            args=(
-                image,
-                "left_rgb",
-                output_path,
-                world,
-                world.world.get_level_bbs(),
-                world.player.get_transform(),
-            ),
-        ).start()
-        r_rgb_callback = lambda image: threading.Thread(
-            target=rgb_callback,
-            args=(image, "right_rgb", output_path, None, None, None),
-        ).start()
-        l_depth_callback = lambda image: threading.Thread(
-            target=depth_callback, args=(image, "left_depth", output_path)
-        ).start()
-
+        depth = world.world.spawn_actor(depth_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
+        
+        
+        l_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'left_rgb', output_path, world, world.player.get_transform())).start()
+        r_rgb_callback = lambda image: threading.Thread(target = rgb_callback, args = (image, 'right_rgb', output_path, None, None)).start()
+        l_depth_callback = lambda image: threading.Thread(target = depth_callback, args = (image, 'left_depth', output_path)).start()
+        
         l_rgb.listen(l_rgb_callback)
         r_rgb.listen(r_rgb_callback)
         depth.listen(l_depth_callback)
@@ -406,10 +453,7 @@ def prep_episode(
         print("Something went wrong setting up the simulation episode:")
         raise (e)
 
-
-def sim_episode(
-    client, args, episode_name
-):  # uses code from automatic_control.py and generate_traffic.py
+def sim_episode(client, args, iteration_name, episode_name): # uses code from automatic_control.py and generate_traffic.py
     """
     Single simulation episode loop. This handles updating all the HUD information,
     collecting and saving sensor data, ticking the agent and, if needed,
@@ -417,9 +461,7 @@ def sim_episode(
     cameras set. Calls prep_episode() to spawn player and set cameras.
     """
 
-    world, controller, display, hud, agent, traffic_manager, sensors, output_path = (
-        prep_episode(client, args, episode_name)
-    )
+    world, controller, display, hud, agent, traffic_manager, sensors, output_path = prep_episode(client, args, iteration_name, episode_name)
 
     try:
         spawn_points = world.map.get_spawn_points()
@@ -437,32 +479,19 @@ def sim_episode(
                 # Initialize semantic lidar on first tick
                 if first_tick:
                     bp_library = world.world.get_blueprint_library()
-
-                    s_lidar_bp = bp_library.find("sensor.lidar.ray_cast_semantic")
-                    s_lidar_bp.set_attribute("sensor_tick", str(1 / POLL_RATE))
-                    transform = carla.Transform(
-                        carla.Location(x=0.60, y=-0.25, z=1.8),
-                        carla.Rotation(pitch=180.0, yaw=0.0, roll=0.0),
-                    )
-                    s_lidar = world.world.spawn_actor(
-                        s_lidar_bp,
-                        transform,
-                        attach_to=world.player,
-                        attachment_type=carla.AttachmentType.Rigid,
-                    )
-
-                    s_lidar.horizontal_fov = 90.0
-                    s_lidar.range = 50.0
-
-                    lid_callback = lambda data: threading.Thread(
-                        target=lidar_callback,
-                        args=(
-                            data,
-                            "left_lidar",
-                            output_path,
-                            world.world.get_actors(),
-                        ),
-                    ).start()
+                    
+                    s_lidar_bp = bp_library.find('sensor.lidar.ray_cast_semantic')
+                    s_lidar_bp.set_attribute('horizontal_fov', str(CAMERA_FOV))
+                    s_lidar_bp.set_attribute('range', str(50.0))
+                    s_lidar_bp.set_attribute('rotation_frequency', str(20.0))
+                    s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
+                    s_lidar_bp.set_attribute('lower_fov', str(-30.0))
+                    s_lidar_bp.set_attribute('upper_fov', str(30.0))
+                    s_lidar_bp.set_attribute('channels', str(128.0))
+                    transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
+                    s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
+                    
+                    lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path, world.world.get_actors(), {actor.id: (actor.bounding_box, actor.get_transform()) for actor in world.world.get_actors()})).start()
                     s_lidar.listen(lid_callback)
 
                     first_tick = False
@@ -507,6 +536,8 @@ def sim_episode(
 
             for sensor in sensors:
                 sensor.destroy()
+                
+            s_lidar.destroy()
 
             world.destroy()
 
@@ -541,11 +572,10 @@ def main():
         help="TCP port to listen to (default: 2000)",
     )
     argparser.add_argument(
-        "--res",
-        metavar="WIDTHxHEIGHT",
-        default="600x400",
-        help="Window resolution (default: 1280x720)",
-    )
+        '--res',
+        metavar='WIDTHxHEIGHT',
+        default='640x400',
+        help='Window resolution (default: 1280x720)')
     argparser.add_argument(
         "--filter",
         metavar="PATTERN",
@@ -693,38 +723,21 @@ def main():
     args.width, args.height = [int(x) for x in args.res.split("x")]
 
     # List of weather presets
-    weathers = [
-        carla.WeatherParameters.Default,
-        carla.WeatherParameters.ClearNoon,
-        carla.WeatherParameters.CloudyNoon,
-        carla.WeatherParameters.WetNoon,
-        carla.WeatherParameters.WetCloudyNoon,
-        carla.WeatherParameters.MidRainyNoon,
-        carla.WeatherParameters.HardRainNoon,
-        carla.WeatherParameters.SoftRainNoon,
-        carla.WeatherParameters.ClearSunset,
-        carla.WeatherParameters.CloudySunset,
-        carla.WeatherParameters.WetSunset,
-        carla.WeatherParameters.WetCloudySunset,
-        carla.WeatherParameters.MidRainSunset,
-        carla.WeatherParameters.HardRainSunset,
-        carla.WeatherParameters.SoftRainSunset,
-    ]
-
-    # Construct episode name based on config
-    episode_name = ""
-
-    args.behavior = EGO_BEHAVIOR
-
+    weathers = [carla.WeatherParameters.Default, carla.WeatherParameters.ClearNoon, carla.WeatherParameters.CloudyNoon, carla.WeatherParameters.WetNoon, carla.WeatherParameters.WetCloudyNoon, carla.WeatherParameters.MidRainyNoon, carla.WeatherParameters.HardRainNoon, carla.WeatherParameters.SoftRainNoon, carla.WeatherParameters.ClearSunset, carla.WeatherParameters.CloudySunset, carla.WeatherParameters.WetSunset, carla.WeatherParameters.WetCloudySunset, carla.WeatherParameters.MidRainSunset, carla.WeatherParameters.HardRainSunset, carla.WeatherParameters.SoftRainSunset]
+    
+    # Construct iteration and episode name based on config
+    iteration_name = ''
+    iteration_name = iteration_name + EGO_BEHAVIOR
+    iteration_name = iteration_name + '_w' + str(WEATHER)
+    iteration_name = iteration_name + '_' + MAP
+    
+    episode_name = EGO_BEHAVIOR
+    
     args.external_behavior = EXTERNAL_BEHAVIOR
-    episode_name = episode_name + EXTERNAL_BEHAVIOR
-
+    args.behavior = EGO_BEHAVIOR
     args.weather = weathers[WEATHER]
-    episode_name = episode_name + "_w" + str(WEATHER)
-
     args.map = MAP
-    episode_name = episode_name + "_" + MAP
-
+    
     log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(format="%(levelname)s: %(message)s", level=log_level)
 
@@ -978,8 +991,9 @@ def main():
         )
 
         try:
-            sim_episode(client, args, episode_name)
-
+            sim_episode(client, args, iteration_name, episode_name)
+        
+        
         except KeyboardInterrupt:
             print("\nCancelled by user. Bye!")
     finally:
