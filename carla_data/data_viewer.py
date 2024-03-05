@@ -24,17 +24,24 @@ import xml.etree.ElementTree as ET
 import configparser
 import threading
 
-POLL_RATE = config.POLL_RATE
-CAMERA_X = config.CAMERA_X
-CAMERA_Y = config.CAMERA_Y
-DATA_PATH = config.DATA_PATH
-CAMERA_FOV = config.CAMERA_FOV
+conf = configparser.ConfigParser()
+conf.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini"))
 
-EXTERNAL_BEHAVIOR = config.EXTERNAL_BEHAVIOR
-EGO_BEHAVIOR = config.EGO_BEHAVIOR
-WEATHER = config.WEATHER
-MAP = config.MAP
+CARLA_PYTHON_PATH = conf["Paths"]["CARLA_PYTHON_PATH"]
+DATA_PATH = conf["Paths"]["DATA_PATH"]
 
+if CARLA_PYTHON_PATH not in sys.path:
+    sys.path.insert(0,CARLA_PYTHON_PATH)
+
+POLL_RATE = float(conf["Settings"]["POLL_RATE"])
+CAMERA_X = int(conf["Settings"]["CAMERA_X"])
+CAMERA_Y = int(conf["Settings"]["CAMERA_Y"])
+CAMERA_FOV = int(conf["Settings"]["CAMERA_FOV"])
+
+EGO_BEHAVIOR = conf["Internal Variables"]["EGO_BEHAVIOR"]
+EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
+WEATHER = int(conf["External Variables"]["WEATHER"])
+MAP = conf["External Variables"]["MAP"]
 
 def build_projection_matrix(w, h, fov):
     focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
@@ -84,29 +91,32 @@ def indent(elem, level=0):
 def load_bbs(sample_path):
     bbs = []
     
-    filename1 = 'dynamic_bbs.xml'
-    path1 = os.path.join(sample_path, filename1)
-    tree1 = ET.parse(path1)
-    
-    filename2 = 'static_bbs.xml'
-    path2 = os.path.join(sample_path, filename2)
-    tree2 = ET.parse(path2)
-    
-    root1 = tree1.getroot()
-    root2 = tree2.getroot()
-    
     bb_types = set()
     
-    for child in root1:
-        bb_types.add(child.attrib['class'])
-        bbs.append(child)
-   
-       
-    for child in root2:
-        #print(child.tag, child.attrib)
-        bb_types.add(child.attrib['class'])
-        #print(child.attrib['class'])
-        bbs.append(child)
+    try:
+        filename1 = 'dynamic_bbs.xml'
+        path1 = os.path.join(sample_path, filename1)
+        tree1 = ET.parse(path1)
+        
+        filename2 = 'static_bbs.xml'
+        path2 = os.path.join(sample_path, filename2)
+        tree2 = ET.parse(path2)
+        
+        root1 = tree1.getroot()
+        root2 = tree2.getroot()
+        
+        for child in root1:
+            bb_types.add(child.attrib['class'])
+            bbs.append(child)
+    
+        
+        for child in root2:
+            #print(child.tag, child.attrib)
+            bb_types.add(child.attrib['class'])
+            #print(child.attrib['class'])
+            bbs.append(child)
+    except:
+        None
     
     
     return bb_types, bbs
@@ -192,20 +202,18 @@ def main():
     # List of weather presets
     weathers = [carla.WeatherParameters.Default, carla.WeatherParameters.ClearNoon, carla.WeatherParameters.CloudyNoon, carla.WeatherParameters.WetNoon, carla.WeatherParameters.WetCloudyNoon, carla.WeatherParameters.MidRainyNoon, carla.WeatherParameters.HardRainNoon, carla.WeatherParameters.SoftRainNoon, carla.WeatherParameters.ClearSunset, carla.WeatherParameters.CloudySunset, carla.WeatherParameters.WetSunset, carla.WeatherParameters.WetCloudySunset, carla.WeatherParameters.MidRainSunset, carla.WeatherParameters.HardRainSunset, carla.WeatherParameters.SoftRainSunset]
     
-    # Construct episode name based on config
+    # Construct iteration and episode name based on config
+    iteration_name = ''
+    iteration_name = iteration_name + EGO_BEHAVIOR
+    iteration_name = iteration_name + '_w' + str(WEATHER)
+    iteration_name = iteration_name + '_' + MAP
     
-    episode_name = ''
-    
-    args.behavior = EGO_BEHAVIOR
+    episode_name = EGO_BEHAVIOR
     
     args.external_behavior = EXTERNAL_BEHAVIOR
-    episode_name = episode_name + EXTERNAL_BEHAVIOR
-
+    args.behavior = EGO_BEHAVIOR
     args.weather = weathers[WEATHER]
-    episode_name = episode_name + '_w' + str(WEATHER)
-
     args.map = MAP
-    episode_name = episode_name + '_' + MAP
     
     pygame.init()
     pygame.font.init()
@@ -221,7 +229,7 @@ def main():
     
     data_path = os.path.join(DATA_PATH) 
     episode_path = os.path.join(data_path, episode_name)
-    internal_path = os.path.join(episode_path, EGO_BEHAVIOR)
+    internal_path = os.path.join(episode_path, iteration_name)
     
     iterations = os.listdir(internal_path)
     
@@ -346,7 +354,10 @@ def main():
         image_path = os.path.join(sample_path, img_name)
         _, bbs = load_bbs(sample_path)
         bb_class = bb_classes[bb_class_i]     
-        view_image(display, image_path, sample, bbs, bb_class, font)
+        try:
+            view_image(display, image_path, sample, bbs, bb_class, font)
+        except:
+            None
         pygame.display.update()
         
             

@@ -1,10 +1,5 @@
 import sys
 import config
-CARLA_PYTHON_PATH = config.CARLA_PYTHON_PATH
-
-if CARLA_PYTHON_PATH not in sys.path:
-    sys.path.insert(0,CARLA_PYTHON_PATH)
-    
 import carla
 import automatic_control as ac # Taken from Carla's example code
 import generate_traffic as gt # Taken from Carla's example code
@@ -24,16 +19,24 @@ import xml.etree.ElementTree as ET
 import configparser
 import threading
 
-POLL_RATE = config.POLL_RATE
-CAMERA_X = config.CAMERA_X
-CAMERA_Y = config.CAMERA_Y
-DATA_PATH = config.DATA_PATH
-CAMERA_FOV = config.CAMERA_FOV
+conf = configparser.ConfigParser()
+conf.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini"))
 
-EXTERNAL_BEHAVIOR = config.EXTERNAL_BEHAVIOR
-EGO_BEHAVIOR = config.EGO_BEHAVIOR
-WEATHER = config.WEATHER
-MAP = config.MAP
+CARLA_PYTHON_PATH = conf["Paths"]["CARLA_PYTHON_PATH"]
+DATA_PATH = conf["Paths"]["DATA_PATH"]
+
+if CARLA_PYTHON_PATH not in sys.path:
+    sys.path.insert(0,CARLA_PYTHON_PATH)
+
+POLL_RATE = float(conf["Settings"]["POLL_RATE"])
+CAMERA_X = int(conf["Settings"]["CAMERA_X"])
+CAMERA_Y = int(conf["Settings"]["CAMERA_Y"])
+CAMERA_FOV = int(conf["Settings"]["CAMERA_FOV"])
+
+EGO_BEHAVIOR = conf["Internal Variables"]["EGO_BEHAVIOR"]
+EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
+WEATHER = int(conf["External Variables"]["WEATHER"])
+MAP = conf["External Variables"]["MAP"]
 
 
 def build_projection_matrix(w, h, fov):
@@ -221,15 +224,6 @@ def depth_callback(data, name, episode_path):
         full_path = os.path.join(sample_path, file_name)
         data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
     
-
-def flip_axis(point, mirror):
-    if mirror[0]:
-        dist = CAMERA_X/2 - point[0]
-        point[0] = point[0] + dist*2
-    if mirror[1]:
-        dist = CAMERA_Y/2 - point[1]
-        point[1] = point[1] + dist*2
-    
 def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
     sample_path = os.path.join(episode_path, str(data.frame))
     
@@ -255,8 +249,6 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
         edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
         K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
         
-        mirror = (0, 0)
-        
         root = ET.Element("DynamicBoundingBoxes")
         tree = ET.ElementTree(root)
         
@@ -269,11 +261,6 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             
             bbox_elem = ET.SubElement(root, "BoundingBox")
             bbox_elem.set("class", str(type(actor)))
-            
-            # if "carla.libcarla.TrafficLight" in str(type(actor)):
-            #     mirror = (1, 1)
-            # if "carla.libcarla.Vehicle" in str(type(actor)):
-            #     mirror = (1, 0)
 
             bb = bb_transform_dict[actor_id][0]
             verts = [v for v in bb.get_world_vertices(bb_transform_dict[actor_id][1])]
@@ -285,9 +272,6 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
                     p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
                     # Draw the edges into the camera output
                     bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
-                    
-                    flip_axis(p1, mirror)
-                    flip_axis(p2, mirror)
                     
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
@@ -306,7 +290,7 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
     
  
 
-def prep_episode(client, args, episode_name): # uses code from automatic_control.py and generate_traffic.py
+def prep_episode(client, args, iteration_name, episode_name): # uses code from automatic_control.py and generate_traffic.py
     """
     Does setup for a simulation episode, including: setup cameras, setup pygame
     window, setup player and player behavior
@@ -369,24 +353,24 @@ def prep_episode(client, args, episode_name): # uses code from automatic_control
         ts = datetime.datetime.now()
         data_path = os.path.join(DATA_PATH) 
         episode_path = os.path.join(data_path, episode_name)
-        internal_path = os.path.join(episode_path, EGO_BEHAVIOR)
-        output_path = os.path.join(internal_path, str(ts).replace(':', '-').replace('.', '-').replace(' ', '_'))
+        iteration_path = os.path.join(episode_path, iteration_name)
+        output_path = os.path.join(iteration_path, str(ts).replace(':', '-').replace('.', '-').replace(' ', '_'))
         
         if not os.path.exists(episode_path):
             os.mkdir(episode_path)
         
-        if not os.path.exists(internal_path):
-            os.mkdir(internal_path)
+        if not os.path.exists(iteration_path):
+            os.mkdir(iteration_path)
         
         os.mkdir(output_path)
         
         # Store config in data directories
-        with open(os.path.join(episode_path, "episode_config.txt"), 'w') as dest:
-            config = "External_behavior = " + EXTERNAL_BEHAVIOR + "\nMap = " + MAP + "\nWeather = " + str(WEATHER)
+        with open(os.path.join(episode_path, "config.ini"), 'w') as dest:
+            config = "[Internal Variables]\nEGO_BEHAVIOR = " + EGO_BEHAVIOR
             dest.write(config)
         
-        with open(os.path.join(output_path, "internal_config.txt"), 'w') as dest:
-            config = "Ego_behavior = " + EGO_BEHAVIOR
+        with open(os.path.join(output_path, "config.ini"), 'w') as dest:
+            config = "[External Variables]\nEXTERNAL_BEHAVIOR = " + EXTERNAL_BEHAVIOR + "\nWEATHER = " + str(WEATHER) + "\nMAP = " + MAP
             dest.write(config)
                 
        
@@ -449,7 +433,7 @@ def prep_episode(client, args, episode_name): # uses code from automatic_control
         
     
 
-def sim_episode(client, args, episode_name): # uses code from automatic_control.py and generate_traffic.py
+def sim_episode(client, args, iteration_name, episode_name): # uses code from automatic_control.py and generate_traffic.py
     """
     Single simulation episode loop. This handles updating all the HUD information,
     collecting and saving sensor data, ticking the agent and, if needed,
@@ -457,7 +441,7 @@ def sim_episode(client, args, episode_name): # uses code from automatic_control.
     cameras set. Calls prep_episode() to spawn player and set cameras.
     """
 
-    world, controller, display, hud, agent, traffic_manager, sensors, output_path = prep_episode(client, args, episode_name)
+    world, controller, display, hud, agent, traffic_manager, sensors, output_path = prep_episode(client, args, iteration_name, episode_name)
 
     try:
         spawn_points = world.map.get_spawn_points()
@@ -700,19 +684,18 @@ def main():
     # List of weather presets
     weathers = [carla.WeatherParameters.Default, carla.WeatherParameters.ClearNoon, carla.WeatherParameters.CloudyNoon, carla.WeatherParameters.WetNoon, carla.WeatherParameters.WetCloudyNoon, carla.WeatherParameters.MidRainyNoon, carla.WeatherParameters.HardRainNoon, carla.WeatherParameters.SoftRainNoon, carla.WeatherParameters.ClearSunset, carla.WeatherParameters.CloudySunset, carla.WeatherParameters.WetSunset, carla.WeatherParameters.WetCloudySunset, carla.WeatherParameters.MidRainSunset, carla.WeatherParameters.HardRainSunset, carla.WeatherParameters.SoftRainSunset]
     
-    # Construct episode name based on config
-    episode_name = ''
+    # Construct iteration and episode name based on config
+    iteration_name = ''
+    iteration_name = iteration_name + EGO_BEHAVIOR
+    iteration_name = iteration_name + '_w' + str(WEATHER)
+    iteration_name = iteration_name + '_' + MAP
     
-    args.behavior = EGO_BEHAVIOR
+    episode_name = EGO_BEHAVIOR
     
     args.external_behavior = EXTERNAL_BEHAVIOR
-    episode_name = episode_name + EXTERNAL_BEHAVIOR
-
+    args.behavior = EGO_BEHAVIOR
     args.weather = weathers[WEATHER]
-    episode_name = episode_name + '_w' + str(WEATHER)
-
     args.map = MAP
-    episode_name = episode_name + '_' + MAP
     
     log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
@@ -942,7 +925,7 @@ def main():
         
         
         try:
-            sim_episode(client, args, episode_name)
+            sim_episode(client, args, iteration_name, episode_name)
         
         
         except KeyboardInterrupt:
