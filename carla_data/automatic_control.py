@@ -12,10 +12,15 @@
 """Example of automatic vehicle control from client side."""
 from __future__ import print_function
 
-import config
 import sys
+import configparser
+import os
 
-carla_python_path = config.CARLA_PYTHON_PATH
+conf = configparser.ConfigParser()
+conf.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini"))
+
+carla_python_path = conf["Paths"]["CARLA_PYTHON_PATH"]
+
 if carla_python_path not in sys.path:
     sys.path.insert(0,carla_python_path)
 

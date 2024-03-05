@@ -1,10 +1,4 @@
 import sys
-import config
-CARLA_PYTHON_PATH = config.CARLA_PYTHON_PATH
-
-if CARLA_PYTHON_PATH not in sys.path:
-    sys.path.insert(0,CARLA_PYTHON_PATH)
-    
 import carla
 import automatic_control as ac # Taken from Carla's example code
 import generate_traffic as gt # Taken from Carla's example code

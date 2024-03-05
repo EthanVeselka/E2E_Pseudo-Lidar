@@ -1,5 +1,4 @@
 import sys
-import config
 import carla
 import automatic_control as ac # Taken from Carla's example code
 import generate_traffic as gt # Taken from Carla's example code
