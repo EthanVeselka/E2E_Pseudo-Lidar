@@ -2,17 +2,18 @@ import os
 import csv
 import torch
 import numpy as np
-import PIL
+from PIL import Image, ImageOps
 from torch.utils.data import Dataset
-from processing import normalizer
-from processing import readers
+#from processing import normalizer
+#from processing import readers
+from normalizer import Normalizer
 
 # import utils
 
 
 # ---WARNING: INCOMPLETE---#
 class PLDataset(Dataset):
-    def __init__(self, root, n_samples, num_workers, seed, task):
+    def __init__(self, root, n_samples, num_workers, seed, task, transform = None):
         super(PLDataset, self).__init__(
             root, n_samples, num_workers, seed, task == "train"
         )
@@ -20,14 +21,34 @@ class PLDataset(Dataset):
         self.num_workers = num_workers
         self.seed = seed
         self.task = task
+        self.transform = transform
+        
+        self.left_image_paths = []
+        self.right_image_paths = []
+        self.left_depths = []
 
         self._read_data(root)
-        self._load_data(n_samples)
+        #self._load_data(n_samples)
         self._normalizer = Normalizer()
+        
+        
 
     def __getitem__(self, idx):
         # get item at idx, convert to tensor
-        pass
+        
+        #Get image data
+        left_rgb = Image.open(self.left_image_paths[idx])
+        right_rgb = Image.open(self.right_image_paths[idx])
+        left_depth = Image.open(self.left_depths[idx])
+
+        #Transform it if necessary (ToTensor(), etc...)
+        if self.transform:
+            left_rgb = self.transform(left_rgb)
+            right_rgb = self.transform(right_rgb)
+            left_depth = self.transform(left_depth)
+        
+        return left_rgb, right_rgb, left_depth
+        
 
     def __len__(self):
         return self.n_samples
@@ -40,7 +61,7 @@ class PLDataset(Dataset):
         """
         # left and right as x data --> convert to 2 3D tensors
         # depth_map ground truths as y data --> 2D tensors
-        list_file = os.path.join(self.root, self.task + ".csv")
+        list_file = os.path.join(root, self.task + ".csv")
 
         self.left_image_paths = []
         self.right_image_paths = []
