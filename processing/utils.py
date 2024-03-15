@@ -1,4 +1,4 @@
-import torch
+import numpy as np
 
 
 def read_chunk(reader, chunk_size):

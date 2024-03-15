@@ -6,15 +6,9 @@ Framework for data processing
 clean (if needed)
 -> process()
 -> sample()
--> PLDataset
--> reader 
--> normalizer
+-> PLDataset (uses custom dataloaders/transformations)
 
 returns DataLoader(PLDataset)
-
-## Cleaning
-
-Run clean.py to clean data if raw
 
 ## Sample Config file 
 

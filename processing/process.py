@@ -4,10 +4,10 @@ import torch
 import numpy as np
 
 from processing import sample
-from processing import normalizer
-from processing import PLDataset
 from processing import utils
-
+from processing import generate_disp
+from dataLoading import PLDataset
+from dataLoading import custom_loader
 from torch.utils.data import DataLoader
 
 
@@ -26,9 +26,10 @@ def process(root, config):
     save_file_path = sample(
         root, config, save_file_path="/output"
     )  # return file path with train/val/test listfiles
-    # sample from clean data using sample.py and config
-    # create PLDataset using sample data listfile (dataset creation does reading and normalization)
-    # create DataLoaders from PLDataset to be used in models
+
+    # generate true disp from lidar truths (need for training disp model, only if training instead of using pretrained)
+    # create PLDataset using sample data listfile (dataset creation does reading and transformations)
+    # create torch DataLoaders using custom_loader from PLDataset
     # return DataLoaders
-    
+
     pass

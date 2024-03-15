@@ -1,19 +1,19 @@
-import os
 import csv
+import os
 import torch
+import torchvision.transforms as transforms
+import random
+import transforms as trf
+import readpfm as rp
 import numpy as np
+
 from PIL import Image, ImageOps
 from torch.utils.data import Dataset
-#from processing import normalizer
-#from processing import readers
-from normalizer import Normalizer
-
-# import utils
 
 
-# ---WARNING: INCOMPLETE---#
+# ---WARNING: INCOMPLETE---# Refer to SceneFlowLoader.py or  for implementation
 class PLDataset(Dataset):
-    def __init__(self, root, n_samples, num_workers, seed, task, transform = None):
+    def __init__(self, root, n_samples, num_workers, seed, task, transform=None):
         super(PLDataset, self).__init__(
             root, n_samples, num_workers, seed, task == "train"
         )
@@ -22,33 +22,30 @@ class PLDataset(Dataset):
         self.seed = seed
         self.task = task
         self.transform = transform
-        
+
         self.left_image_paths = []
         self.right_image_paths = []
         self.left_depths = []
 
         self._read_data(root)
-        #self._load_data(n_samples)
+        # self._load_data(n_samples)
         self._normalizer = Normalizer()
-        
-        
 
     def __getitem__(self, idx):
         # get item at idx, convert to tensor
-        
-        #Get image data
+
+        # Get image data
         left_rgb = Image.open(self.left_image_paths[idx])
         right_rgb = Image.open(self.right_image_paths[idx])
         left_depth = Image.open(self.left_depths[idx])
 
-        #Transform it if necessary (ToTensor(), etc...)
+        # Transform it if necessary (ToTensor(), etc...)
         if self.transform:
             left_rgb = self.transform(left_rgb)
             right_rgb = self.transform(right_rgb)
             left_depth = self.transform(left_depth)
-        
+
         return left_rgb, right_rgb, left_depth
-        
 
     def __len__(self):
         return self.n_samples
@@ -79,7 +76,7 @@ class PLDataset(Dataset):
     def _load_data(self, n_samples):
         # normalize data
         """
-        what normalization is happening here?
-        how does depth map model expect input?
+        what normalization is happening here? Prob rand transformations instead of norms, batchnorm looks to be done inside model itself
+        how does disp model expect input?
         """
         pass
