@@ -316,21 +316,25 @@ def main():
                 if event.key == pygame.K_q:
                     bb_class_i -= 1
                     bb_class_i %= len(bb_classes)-1
+                    print(bb_classes[bb_class_i])
                 if event.key == pygame.K_e:
                     bb_class_i += 1
                     bb_class_i %= len(bb_classes)-1
+                    print(bb_classes[bb_class_i])
                 if event.key == pygame.K_SPACE:
                     if show_bb:
                         show_bb = False
                     else:
                         show_bb = True
-                print(bb_classes[bb_class_i])
+                
                 
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT:
                     l_hold = float('inf')
+                    print(samples[sample_i])
                 if event.key == pygame.K_RIGHT:
                     r_hold = float('inf')
+                    print(samples[sample_i])
                     
             
                 

@@ -1,0 +1,12 @@
+CARLA_PYTHON_PATH = 'C:\my_workspace\school\csce482\E2E_Pseudo-Lidar\carla_data\carla\WindowsNoEditor\PythonAPI\carla'
+DATA_PATH = 'C:\my_workspace\school\csce482\E2E_Pseudo-Lidar\carla_data\data'
+POLL_RATE = 3 # polling rate of sensor with respect to simulation-time
+CAMERA_X = 1920
+CAMERA_Y = 1080
+CAMERA_FOV = 90
+CARLA_TIMESTEP = 0.05
+CONFIG_INI_PATH = 'C:\my_workspace\school\csce482\E2E_Pseudo-Lidar\carla_data\config.ini'
+EXTERNAL_BEHAVIOR = 'normal'
+EGO_BEHAVIOR =  'normal'
+WEATHER = 0
+MAP = 'Town02'

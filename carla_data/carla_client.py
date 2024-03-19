@@ -39,6 +39,8 @@ EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
 WEATHER = int(conf["External Variables"]["WEATHER"])
 MAP = conf["External Variables"]["MAP"]
 
+position_dict = {}
+first_data_frame = None
 
 def build_projection_matrix(w, h, fov):
     focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
@@ -85,15 +87,37 @@ def indent(elem, level=0):
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
             
-
-
-def save_boxes(world, name, sample_path, transform, player_transform):
-    # print(world.player.get_transform().location)
+def save_boxes(world, sample_path, transform, frame_num):
+    global position_dict
+    global first_data_frame
+    
+    #print(world.player.get_transform().location)
     # Create the XML structure
+    
     root = ET.Element("StaticBoundingBoxes")
     tree = ET.ElementTree(root)
     #bbs = world.world.get_level_bbs(carla.CityObjectLabel.Car)
+    transform = transform
+    #print('looking for:', frame_num)
+    new_frame = 0
+    found_frame = False
     
+    
+    saved_frame_num = frame_num-first_data_frame+1
+    for i in range(2):
+        if first_data_frame is not None and saved_frame_num in position_dict:
+            transform = position_dict[saved_frame_num]
+            found_frame = True
+            break
+        else:
+            #print('frame missed:', frame_num)
+            #print('keys:', position_dict.keys())
+            time.sleep(1)
+    
+
+    if not found_frame:
+        print('frame oofed:', frame_num)
+            
     #print(bounding_box_set)
     
     filters = [
@@ -112,6 +136,8 @@ def save_boxes(world, name, sample_path, transform, player_transform):
         carla.CityObjectLabel.GuardRail,
         carla.CityObjectLabel.Water,
         carla.CityObjectLabel.Terrain,
+        carla.CityObjectLabel.TrafficLight,
+        carla.CityObjectLabel.TrafficSigns,
         ]
 
     
@@ -126,16 +152,16 @@ def save_boxes(world, name, sample_path, transform, player_transform):
             bounding_box_set.append((obj, bb))
     count = 0
     for label, bb in bounding_box_set:
-
+        
         # Filter for distance from ego vehicle
-        if bb.location.distance(player_transform.location) < 50:
+        if bb.location.distance(transform.location) < 50:
 
             # Calculate the dot product between the forward vector
             # of the vehicle and the vector between the vehicle
             # and the bounding box. We threshold this dot product
             # to limit to drawing bounding boxes IN FRONT OF THE CAMERA
-            forward_vec = player_transform.get_forward_vector()
-            ray = bb.location - player_transform.location
+            forward_vec = transform.get_forward_vector()
+            ray = bb.location - transform.location
             
             if forward_vec.dot(ray) > 1:
                 # Cycle through the vertices
@@ -188,12 +214,17 @@ def save_boxes(world, name, sample_path, transform, player_transform):
     file_path = os.path.join(sample_path, filename)
     indent(root)
     tree.write(file_path)
+
                 
 
 def rgb_callback(data, name, episode_path, world, player_transform):
+    global first_data_frame
+
     sample_path = os.path.join(episode_path, str(data.frame))
     #print(sample_path)
-    
+    if first_data_frame is None:
+        first_data_frame = data.frame
+        print('first_data_frame:', first_data_frame)
     # Folder may already exist
     try:
         if not os.path.exists(sample_path):
@@ -207,9 +238,12 @@ def rgb_callback(data, name, episode_path, world, player_transform):
         data.save_to_disk(full_path)
         
         if name == 'left_rgb':
-            save_boxes(world, name, sample_path, data.transform, player_transform)
+            #world, sample_path, transform, frame_num
+            save_boxes(world, sample_path, data.transform, data.frame)
     
 def depth_callback(data, name, episode_path):
+    global position_dict
+    
     sample_path = os.path.join(episode_path, str(data.frame))
     #print(sample_path)
     
@@ -226,6 +260,9 @@ def depth_callback(data, name, episode_path):
         data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
     
 def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
+    global first_data_frame
+    global position_dict
+
     sample_path = os.path.join(episode_path, str(data.frame))
     
     try:
@@ -246,7 +283,7 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             if point.object_idx:
                 actor_set.add(point.object_idx)
         
-        world_2_camera = np.array(data.transform.get_inverse_matrix())
+        
         edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
         K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
         
@@ -263,8 +300,30 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             bbox_elem = ET.SubElement(root, "BoundingBox")
             bbox_elem.set("class", str(type(actor)))
 
+            position_transform = bb_transform_dict[actor_id][1]
+
+            good_frame = False
+            world_2_camera = np.array(data.transform.get_inverse_matrix())
+            
+            for i in range(2):
+                if first_data_frame is None:
+                    print('no first frame')
+                    time.sleep(1)
+                    continue
+                saved_frame_num = data.frame-first_data_frame + 1
+                if saved_frame_num not in position_dict:
+                    print('not in dict')
+                    time.sleep(1)
+                    continue
+                good_frame = True
+                world_2_camera = np.array(position_dict[saved_frame_num].get_inverse_matrix())
+
+            if not good_frame:
+                print('lidar frame oofed:', data.frame)
+            
+
             bb = bb_transform_dict[actor_id][0]
-            verts = [v for v in bb.get_world_vertices(bb_transform_dict[actor_id][1])]
+            verts = [v for v in bb.get_world_vertices(position_transform)]
             counter = 0
             
             for edge in edges:
@@ -415,15 +474,7 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
         
         
         sensors = [l_rgb, r_rgb, depth]
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
         
         return world, controller, display, hud, agent, traffic_manager, sensors, output_path
             
@@ -442,7 +493,10 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
     cameras set. Calls prep_episode() to spawn player and set cameras.
     """
 
+    global position_dict
+    
     world, controller, display, hud, agent, traffic_manager, sensors, output_path = prep_episode(client, args, iteration_name, episode_name)
+    
 
     try:
         spawn_points = world.map.get_spawn_points()
@@ -450,11 +504,15 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
         num_ticks = 0
         first_tick = True
         s_lidar = None
-
+        main_cam = sensors[0]
+        
         while num_ticks < 2000:
             clock.tick()
            
             if not args.asynch:
+                
+                position_dict[num_ticks] = main_cam.get_transform()
+                #print(position_dict.keys())
                 world.world.tick()
                 
                 # Initialize semantic lidar on first tick
@@ -469,6 +527,7 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
                     s_lidar_bp.set_attribute('lower_fov', str(-30.0))
                     s_lidar_bp.set_attribute('upper_fov', str(30.0))
                     s_lidar_bp.set_attribute('channels', str(128.0))
+                    s_lidar_bp.set_attribute('channels', str(128.0))    
                     transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
                     
@@ -527,7 +586,7 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
 
         pygame.quit()
         
-        time.sleep(60)
+        time.sleep(5)
 
 
 def main():
