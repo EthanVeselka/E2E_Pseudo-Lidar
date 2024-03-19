@@ -16,20 +16,20 @@ def RGB_loader(path):
 
 #not sure how this changes for depth map
 def disparity_loader(path): 
-    return np.load(path).astype(np.float32)
+    return Image.open(path) #np.load(path).astype(np.float32)
 
 # ---WARNING: INCOMPLETE---# Refer to SceneFlowLoader.py or  for implementation
 class PLDataset(Dataset):
-    def __init__(self, root, n_samples, num_workers, seed, task, dploader=disparity_loader, rgbloader=RGB_loader, transform=None):
-        super(PLDataset, self).__init__(
-            root, n_samples, num_workers, seed, task == "train"
-        )
+    def __init__(self, root, num_workers, seed, task, dploader=disparity_loader, rgbloader=RGB_loader, transform=None):
+        # super(PLDataset, self).__init__(
+        #     root, n_samples, num_workers, seed, task == "train"
+        # )
         #self.n_samples = n_samples
         self.num_workers = num_workers
         self.seed = seed
         self.task = task
         self.transform = transform
-        self.disploader = disparity_loader
+        self.dploader = disparity_loader
         self.rgbloader = RGB_loader
 
         self.left_image_paths = []
@@ -55,14 +55,16 @@ class PLDataset(Dataset):
             w, h = left_img.size
             left_img = left_img.crop((w - 1200, h - 352, w, h))
             right_img = right_img.crop((w - 1200, h - 352, w, h))
-            left_depth = left_depth[h - 352 : h, w - 1200 : w]
+            left_depth = left_depth.crop((w - 1200, h - 352, w, h))
+            #left_depth = left_depth[h - 352 : h, w - 1200 : w]
             
         #Transform to tensor
         transform = transforms.ToTensor()
         
         left_img = transform(left_img)
         right_img = transform(right_img)
-        left_depth = torch.from_numpy(left_depth).float()
+        left_depth = transform(left_depth)
+        # left_depth = torch.from_numpy(left_depth).float()
         
         #Additional transforms if necessary
         if self.transform:
@@ -92,10 +94,11 @@ class PLDataset(Dataset):
             reader = csv.reader(frame_path_folders)
             next(reader, None)
 
+            
             for row in reader:
-                self.left_image_paths.append(row + "/left_rgb.png")
-                self.right_image_paths.append(row + "/right_rgb.png")
-                self.left_depths.append(row + "/left_depth.png")
+                self.left_image_paths.append(row[0] + "/left_rgb.png")
+                self.right_image_paths.append(row[0] + "/right_rgb.png")
+                self.left_depths.append(row[0] + "/left_depth.png")
 
 
     def _load_data(self, n_samples):
@@ -108,6 +111,7 @@ class PLDataset(Dataset):
     
     def _rand_crop(self, l_img, r_img, dmap, th, tw):
         #from https://github.com/mileyan/pseudo_lidar/blob/master/psmnet/dataloader/KITTILoader.py
+        
         w, h = l_img.size
         
         x1 = random.randint(0, w - tw)
@@ -116,7 +120,9 @@ class PLDataset(Dataset):
         l_img = l_img.crop((x1, y1, x1 + tw, y1 + th))
         r_img = r_img.crop((x1, y1, x1 + tw, y1 + th))
         
-        dmap = dmap[y1 : y1 + th, x1 : x1 + tw]
+        #dmap = dmap[y1 : y1 + th, x1 : x1 + tw]
+        dmap = np.ascontiguousarray(dmap,dtype=np.float32)/256
+        dmap = dmap[y1:y1 + th, x1:x1 + tw]
         
         return l_img, r_img, dmap
         

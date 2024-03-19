@@ -11,7 +11,7 @@ from .dataLoading import custom_loader
 
 from torch.utils.data import DataLoader
 
-#If you want to run this by itself from main directory use:
+#If you want to run this by itself, run from main directory and use:
 # python3 -m processing.process
 
 # ---WARNING: INCOMPLETE---#
@@ -25,9 +25,10 @@ def process(root, config):
     :param config: configuration file specifying sampling parameters for train/test sets
     :type config: str
     """
-
+    save_file_path = os.getcwd() + "/carla_data/output"
+    
     save_file_path = sample.sample(
-        root, config, save_file_path="/output"
+        root, config, save_file_path
     )  # return file path with train/val/test listfiles
 
     # generate true disp from lidar truths (need for training disp model, only if training instead of using pretrained)
@@ -36,15 +37,16 @@ def process(root, config):
     # return DataLoaders
     
     
-    pldataset = PLDataset(save_file_path, 0, 4, 0, "train") #num_samples 
+    pldataset = PLDataset.PLDataset(save_file_path, num_workers=4, seed=0, task="train") #num_samples 
     
     pldl = DataLoader(pldataset, batch_size = 64, shuffle = True)
     
+    #test loop
     for batch in pldl:
-        x, y = batch
-        
-        print(x.shape, y.shape)
-    pass
+        for images in batch:
+            print(images.shape)
+    
+    return pldl
 
 if __name__ == "__main__":
-    process("NA", "processing/config.ini")
+    process("NA", "config.ini")
