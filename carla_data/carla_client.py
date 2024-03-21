@@ -193,6 +193,12 @@ def save_boxes(world, sample_path, transform, frame_num):
                     on_screen.set('on_screen', 'true')
                 else:
                     on_screen.set('on_screen', 'false')
+                    
+                # Store center of object
+                bbox_elem_center = ET.SubElement(bbox_elem, "center")
+                bbox_elem_center.set("x", str(bb.location.x))
+                bbox_elem_center.set("y", str(bb.location.y))
+                bbox_elem_center.set("z", str(bb.location.z))
                 
                 for edge in edges:
                     # Join the vertices into edges
@@ -272,6 +278,7 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
     except:
         None
     finally:
+        # Save semantic lidar data to path
         file_name = '%s.ply' % name
         full_path = os.path.join(sample_path, file_name)
         data.save_to_disk(full_path)
@@ -283,8 +290,10 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             if point.object_idx:
                 actor_set.add(point.object_idx)
         
-        
+        # All unique edges needed to create bounding box
         edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
+        
+        world_2_camera = np.array(data.transform.get_inverse_matrix())
         K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
         
         root = ET.Element("DynamicBoundingBoxes")
@@ -325,6 +334,14 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             bb = bb_transform_dict[actor_id][0]
             verts = [v for v in bb.get_world_vertices(position_transform)]
             counter = 0
+            
+            bbox_elem.set("actor_id", str(actor_id))
+            
+            # Store center of object
+            bbox_elem_center = ET.SubElement(bbox_elem, "center")
+            bbox_elem_center.set("x", str(bb_transform_dict[actor_id][1].location.x))
+            bbox_elem_center.set("y", str(bb_transform_dict[actor_id][1].location.y))
+            bbox_elem_center.set("z", str(bb_transform_dict[actor_id][1].location.z))
             
             for edge in edges:
                     # Join the vertices into edges
@@ -526,8 +543,8 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
                     s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
                     s_lidar_bp.set_attribute('lower_fov', str(-30.0))
                     s_lidar_bp.set_attribute('upper_fov', str(30.0))
-                    s_lidar_bp.set_attribute('channels', str(128.0))
-                    s_lidar_bp.set_attribute('channels', str(128.0))    
+                    s_lidar_bp.set_attribute('points_per_second', str(224000))
+                    s_lidar_bp.set_attribute('channels', str(128.0)) 
                     transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
                     
@@ -1010,8 +1027,6 @@ def main():
         client.apply_batch([carla.command.DestroyActor(x) for x in all_id])
 
         time.sleep(0.5)
-
-
 
 if __name__ == '__main__':
     main()
