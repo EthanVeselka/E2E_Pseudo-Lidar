@@ -10,21 +10,32 @@ import numpy as np
 from PIL import Image, ImageOps
 from torch.utils.data import Dataset
 
+
 def RGB_loader(path):
     return Image.open(path).convert("RGB")
 
 
-#not sure how this changes for depth map
-def disparity_loader(path): 
-    return Image.open(path) #np.load(path).astype(np.float32)
+# not sure how this changes for depth map
+def disparity_loader(path):
+    return Image.open(path)  # np.load(path).astype(np.float32)
+
 
 # ---WARNING: INCOMPLETE---# Refer to SceneFlowLoader.py or  for implementation
 class PLDataset(Dataset):
-    def __init__(self, root, num_workers, seed, task, dploader=disparity_loader, rgbloader=RGB_loader, transform=None):
+    def __init__(
+        self,
+        root,
+        num_workers,
+        seed,
+        task,
+        dploader=disparity_loader,
+        rgbloader=RGB_loader,
+        transform=None,
+    ):
         # super(PLDataset, self).__init__(
         #     root, n_samples, num_workers, seed, task == "train"
         # )
-        #self.n_samples = n_samples
+        # self.n_samples = n_samples
         self.num_workers = num_workers
         self.seed = seed
         self.task = task
@@ -50,23 +61,25 @@ class PLDataset(Dataset):
         left_depth = self.dploader(self.left_depths[idx])
 
         if self.task == "train":
-            left_img, right_img, left_depth = self._rand_crop(left_img,right_img,left_depth,256,512) #parameters will need to be adjusted
+            left_img, right_img, left_depth = self._rand_crop(
+                left_img, right_img, left_depth, 256, 512
+            )  # parameters will need to be adjusted
         else:
             w, h = left_img.size
             left_img = left_img.crop((w - 1200, h - 352, w, h))
             right_img = right_img.crop((w - 1200, h - 352, w, h))
             left_depth = left_depth.crop((w - 1200, h - 352, w, h))
-            #left_depth = left_depth[h - 352 : h, w - 1200 : w]
-            
-        #Transform to tensor
+            # left_depth = left_depth[h - 352 : h, w - 1200 : w]
+
+        # Transform to tensor
         transform = transforms.ToTensor()
-        
+
         left_img = transform(left_img)
         right_img = transform(right_img)
         left_depth = transform(left_depth)
         # left_depth = torch.from_numpy(left_depth).float()
-        
-        #Additional transforms if necessary
+
+        # Additional transforms if necessary
         if self.transform:
             left_img = self.transform(left_img)
             right_img = self.transform(right_img)
@@ -94,12 +107,10 @@ class PLDataset(Dataset):
             reader = csv.reader(frame_path_folders)
             next(reader, None)
 
-            
             for row in reader:
                 self.left_image_paths.append(row[0] + "/left_rgb.png")
                 self.right_image_paths.append(row[0] + "/right_rgb.png")
                 self.left_depths.append(row[0] + "/left_depth.png")
-
 
     def _load_data(self, n_samples):
         # normalize data
@@ -108,21 +119,20 @@ class PLDataset(Dataset):
         how does disp model expect input?
         """
         pass
-    
+
     def _rand_crop(self, l_img, r_img, dmap, th, tw):
-        #from https://github.com/mileyan/pseudo_lidar/blob/master/psmnet/dataloader/KITTILoader.py
-        
+        # from https://github.com/mileyan/pseudo_lidar/blob/master/psmnet/dataloader/KITTILoader.py
+
         w, h = l_img.size
-        
+
         x1 = random.randint(0, w - tw)
         y1 = random.randint(0, h - th)
 
         l_img = l_img.crop((x1, y1, x1 + tw, y1 + th))
         r_img = r_img.crop((x1, y1, x1 + tw, y1 + th))
-        
-        #dmap = dmap[y1 : y1 + th, x1 : x1 + tw]
-        dmap = np.ascontiguousarray(dmap,dtype=np.float32)/256
-        dmap = dmap[y1:y1 + th, x1:x1 + tw]
-        
+
+        # dmap = dmap[y1 : y1 + th, x1 : x1 + tw]
+        dmap = np.ascontiguousarray(dmap, dtype=np.float32) / 256
+        dmap = dmap[y1 : y1 + th, x1 : x1 + tw]
+
         return l_img, r_img, dmap
-        
