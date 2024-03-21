@@ -14,6 +14,7 @@ from pascal_voc_writer import Writer
 import xml.etree.ElementTree as ET
 import configparser
 import threading
+import shutil
     
 from agents.navigation.behavior_agent import BehaviorAgent 
 from agents.navigation.basic_agent import BasicAgent  
@@ -38,6 +39,9 @@ EGO_BEHAVIOR = conf["Internal Variables"]["EGO_BEHAVIOR"]
 EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
 WEATHER = int(conf["External Variables"]["WEATHER"])
 MAP = conf["External Variables"]["MAP"]
+
+FILES_PER_FRAME = 6
+output_path = ''
 
 position_dict = {}
 first_data_frame = None
@@ -307,8 +311,7 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
                 continue
             
             bbox_elem = ET.SubElement(root, "BoundingBox")
-            bbox_elem.set("class", str(type(actor)))
-
+            bbox_elem.set("class", str(type(actor)).split("'")[1])
             position_transform = bb_transform_dict[actor_id][1]
 
             good_frame = False
@@ -427,6 +430,8 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
         
         #sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=vehicle)
         # Create data paths and directories
+        global output_path
+        
         ts = datetime.datetime.now()
         data_path = os.path.join(DATA_PATH) 
         episode_path = os.path.join(data_path, episode_name)
@@ -1027,6 +1032,72 @@ def main():
         client.apply_batch([carla.command.DestroyActor(x) for x in all_id])
 
         time.sleep(0.5)
+        
+        clean_data()
+
+def match_dynamic_static(dynamic_objects, static_objects):
+    for dynamic_object in dynamic_objects:
+        closest_static = (None, float('inf'))
+        
+        # Get center position of dynamic object
+        dynamic_center_child = dynamic_object.find("center")
+        dynamic_center = carla.Location(float(dynamic_center_child.attrib['x']), float(dynamic_center_child.attrib['y']), float(dynamic_center_child.attrib['z']))
+        
+        for static_object in static_objects:
+            # Get center position of static object
+            static_center_child = static_object.find("center")
+            static_center = carla.Location(float(static_center_child.attrib['x']), float(static_center_child.attrib['y']), float(static_center_child.attrib['z']))
+            
+            # Compare to distance to previous closest static object
+            cur_distance = abs(dynamic_center.distance(static_center))
+            if cur_distance < closest_static[1]:
+                closest_static = (static_object, cur_distance)
+                
+        # Assign dynamic actor id to closest static object
+        if closest_static[0]:
+            closest_static[0].set("actor_id", dynamic_object.attrib["actor_id"])
+
+def remove_unmatched_static(static_objects, static_tree):
+    for object in static_objects:
+        if "actor_id" not in object.attrib:
+            static_tree.remove(object)
+
+def clean_data():
+    frames = os.scandir(output_path)
+    
+    for frame in frames:
+        
+        if frame.name == "config.ini":
+            continue
+        
+        frame_data = os.scandir(frame.path)
+        
+        # Remove frames that are missing data
+        if len(list(frame_data)) < FILES_PER_FRAME:
+            shutil.rmtree(frame)
+            continue
+        
+        dynamic_tree = ET.parse(os.path.join(frame.path, 'dynamic_bbs.xml'))
+        static_tree = ET.parse(os.path.join(frame.path, 'static_bbs.xml'))
+        
+        dynamic_tree_root = dynamic_tree.getroot()
+        static_tree_root = static_tree.getroot()
+        
+        dynamic_traffic_lights = dynamic_tree_root.findall('.//BoundingBox[@class="carla.libcarla.TrafficLight"]')
+        dynamic_traffic_signs = dynamic_tree_root.findall('.//BoundingBox[@class="carla.libcarla.TrafficSign"]')
+        
+        static_traffic_lights = static_tree_root.findall('.//BoundingBox[@class="TrafficLight"]')
+        static_traffic_signs = static_tree_root.findall('.//BoundingBox[@class="TrafficSign"]')
+        
+        # Match dynamic objects to static objects by distance
+        match_dynamic_static(dynamic_traffic_lights, static_traffic_lights)
+        match_dynamic_static(dynamic_traffic_signs, static_traffic_signs)
+        
+        remove_unmatched_static(static_traffic_lights, static_tree_root)
+        remove_unmatched_static(static_traffic_signs, static_tree_root)
+        
+        static_tree.write(os.path.join(frame.path, 'static_bbs.xml'))
+        
 
 if __name__ == '__main__':
     main()
