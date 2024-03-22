@@ -204,6 +204,13 @@ def save_boxes(world, sample_path, transform, frame_num):
                 bbox_elem_center.set("y", str(bb.location.y))
                 bbox_elem_center.set("z", str(bb.location.z))
                 
+                # Store 2D Box values
+                bbox_elem_2d_box = ET.SubElement(bbox_elem, "Box2d")
+                bbox_elem_2d_box.set("xMin", str(x_min))
+                bbox_elem_2d_box.set("xMax", str(x_max))
+                bbox_elem_2d_box.set("yMin", str(y_min))
+                bbox_elem_2d_box.set("yMax", str(y_max))
+                
                 for edge in edges:
                     # Join the vertices into edges
                     p1 = get_image_point(verts[edge[0]], K, world_2_camera)
@@ -338,13 +345,35 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             verts = [v for v in bb.get_world_vertices(position_transform)]
             counter = 0
             
-            bbox_elem.set("actor_id", str(actor_id))
+            bbox_elem.set("actorId", str(actor_id))
+            
+            x_max = -10000
+            x_min = 10000
+            y_max = -10000
+            y_min = 10000
+            for vert in verts:
+                p = get_image_point(vert, K, world_2_camera)
+                if p[0] > x_max:
+                    x_max = p[0]
+                if p[0] < x_min:
+                    x_min = p[0]
+                if p[1] > y_max:
+                    y_max = p[1]
+                if p[1] < y_min:
+                    y_min = p[1]
             
             # Store center of object
             bbox_elem_center = ET.SubElement(bbox_elem, "center")
             bbox_elem_center.set("x", str(bb_transform_dict[actor_id][1].location.x))
             bbox_elem_center.set("y", str(bb_transform_dict[actor_id][1].location.y))
             bbox_elem_center.set("z", str(bb_transform_dict[actor_id][1].location.z))
+            
+            # Store 2D Box values
+            bbox_elem_2d_box = ET.SubElement(bbox_elem, "Box2d")
+            bbox_elem_2d_box.set("xMin", str(x_min))
+            bbox_elem_2d_box.set("xMax", str(x_max))
+            bbox_elem_2d_box.set("yMin", str(y_min))
+            bbox_elem_2d_box.set("yMax", str(y_max))
             
             for edge in edges:
                     # Join the vertices into edges
@@ -1055,11 +1084,11 @@ def match_dynamic_static(dynamic_objects, static_objects):
                 
         # Assign dynamic actor id to closest static object
         if closest_static[0]:
-            closest_static[0].set("actor_id", dynamic_object.attrib["actor_id"])
+            closest_static[0].set("actorId", dynamic_object.attrib["actorId"])
 
 def remove_unmatched_static(static_objects, static_tree):
     for object in static_objects:
-        if "actor_id" not in object.attrib:
+        if "actorId" not in object.attrib:
             static_tree.remove(object)
 
 def clean_data():

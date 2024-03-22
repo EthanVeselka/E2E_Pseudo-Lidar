@@ -37,6 +37,8 @@ EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
 WEATHER = int(conf["External Variables"]["WEATHER"])
 MAP = conf["External Variables"]["MAP"]
 
+bb_2d = False
+
 def build_projection_matrix(w, h, fov):
     focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
     K = np.identity(3)
@@ -120,18 +122,30 @@ def load_bbs(sample_path):
 def view_image(display, image_path, frame_num, bbs, bb_class, font):
     imp = pygame.image.load(image_path).convert()
     
-    
     for bb in bbs:
         #print('bb:', bb)
         #print('bb_stuff:', bb.tag, bb.attrib)
         if bb.attrib['class'] == bb_class:
-            for child in bb:
-                title = child.tag
-                if title.startswith('edge'):
-                    #print('startpos:', (child.attrib['x1'], child.attrib['y1']))
-                    start_pos = (float(child.attrib['x1']), float(child.attrib['y1']))
-                    end_pos = (float(child.attrib['x2']), float(child.attrib['y2']))
-                    pygame.draw.line(imp, (255,0,0), start_pos, end_pos)
+            if bb_2d:
+                twoD_bb = bb.find("Box2d")
+                print(twoD_bb.attrib)
+                x_min = float(twoD_bb.attrib['xMin'])
+                x_max = float(twoD_bb.attrib['xMax'])
+                y_min = float(twoD_bb.attrib['yMin'])
+                y_max = float(twoD_bb.attrib['yMax'])
+                    
+                pygame.draw.line(imp, (255,0,0), (x_min, y_min), (x_max, y_min))
+                pygame.draw.line(imp, (255,0,0), (x_min, y_max), (x_max, y_max))
+                pygame.draw.line(imp, (255,0,0), (x_min, y_min), (x_min, y_max))
+                pygame.draw.line(imp, (255,0,0), (x_max, y_min), (x_max, y_max))
+            else:
+                for child in bb:
+                    title = child.tag
+                    if title.startswith('edge'):
+                        #print('startpos:', (child.attrib['x1'], child.attrib['y1']))
+                        start_pos = (float(child.attrib['x1']), float(child.attrib['y1']))
+                        end_pos = (float(child.attrib['x2']), float(child.attrib['y2']))
+                        pygame.draw.line(imp, (255,0,0), start_pos, end_pos)
 
     
 
@@ -289,7 +303,8 @@ def main():
      
       # iterate over the list of Event objects
       # that was returned by pygame.event.get() method.
-      
+        global bb_2d
+        
         for event in pygame.event.get():
      
             # if event object type is QUIT
@@ -326,8 +341,8 @@ def main():
                         show_bb = False
                     else:
                         show_bb = True
-                
-                
+                if event.key == pygame.K_b:
+                    bb_2d = not bb_2d
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT:
                     l_hold = float('inf')
