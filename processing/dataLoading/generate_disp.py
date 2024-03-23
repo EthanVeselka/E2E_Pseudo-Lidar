@@ -2,7 +2,7 @@ import argparse
 import os
 
 import numpy as np
-import scipy.misc as ssc
+from PIL import Image
 import calib_utils
 
 # Generates ground truth disparities for training from LiDAR ground truths #
@@ -31,15 +31,17 @@ def generate_dispariy_from_velo(pc_velo, height, width, calib):
     return disp_map
 
 
-def main(filepath):
+def generate_disparity(filepath):
 
     config = "config.ini"
     # calib = calib_utils.Calibration(filepath + "/calib")
-
+    filepath = os.path.join(os.getcwd(), filepath)
     os.chdir(filepath)
+
     for episode in os.listdir(filepath):
         if episode == ".gitignore":
             continue
+
         os.chdir(episode)
         curr_dir = filepath + "/" + episode
 
@@ -73,14 +75,15 @@ def main(filepath):
                         points.append(point)
 
                     point_cloud = np.array(points)
-                    image = ssc.imread("left_rgb.png")
-                    height, width = image.shape[:2]
+                    img = Image.open("left_rgb.png")
+                    width, height = img.size
                     # disp = generate_dispariy_from_velo(
                     #     point_cloud, height, width, calib
                     # )
                     # np.save("left_disp.npy", disp)
-                    print(height, width)
+                    print(width, height)
                     print(point_cloud.shape)
+                    os.chdir("..")
 
 
-main("../../carla_data/example_data")
+generate_disparity("../../carla_data/example_data")

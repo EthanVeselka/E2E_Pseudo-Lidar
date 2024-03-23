@@ -5,11 +5,8 @@ import numpy as np
 
 from . import sample
 from . import utils
-from . import generate_disp
-from .dataLoading import PLDataset
-from .dataLoading import custom_loader
-from .dataLoading import generate_disp
-
+from .dataLoading import PLDataset as pld
+from .dataLoading import generate_disp as gd
 from torch.utils.data import DataLoader
 
 # If you want to run this by itself, run from main directory and use:
@@ -30,17 +27,13 @@ def process(root, config, gen_disp=False):
     save_file_path = os.getcwd() + "/carla_data/output"
 
     if gen_disp:
-        generate_disp("/carla_data/example_data")
+        gd.generate_disparity("../../carla_data/example_data")
 
     save_file_path = sample.sample(
         root, config, save_file_path
     )  # return file path with train/val/test listfiles
 
-    # create PLDataset using sample data listfile (dataset creation does reading and transformations)
-    # create torch DataLoaders using custom_loader from PLDataset
-    # return DataLoaders
-
-    pldataset = PLDataset.PLDataset(
+    pldataset = pld.PLDataset(
         save_file_path, num_workers=4, seed=0, task="train"
     )  # num_samples
 
