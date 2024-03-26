@@ -17,7 +17,7 @@ def RGB_loader(path):
 
 # not sure how this changes for depth map
 def disparity_loader(path):
-    return Image.open(path)  # np.load(path).astype(np.float32)
+    return np.load(path).astype(np.float32)
 
 
 # ---WARNING: INCOMPLETE---# Refer to SceneFlowLoader.py or  for implementation
@@ -40,8 +40,8 @@ class PLDataset(Dataset):
         self.seed = seed
         self.task = task
         self.transform = transform
-        self.dploader = disparity_loader
-        self.rgbloader = RGB_loader
+        self.dploader = dploader
+        self.rgbloader = rgbloader
 
         self.left_image_paths = []
         self.right_image_paths = []
@@ -68,16 +68,16 @@ class PLDataset(Dataset):
             w, h = left_img.size
             left_img = left_img.crop((w - 1200, h - 352, w, h))
             right_img = right_img.crop((w - 1200, h - 352, w, h))
-            left_depth = left_depth.crop((w - 1200, h - 352, w, h))
-            # left_depth = left_depth[h - 352 : h, w - 1200 : w]
+            #left_depth = left_depth.crop((w - 1200, h - 352, w, h)) #for png
+            left_depth = left_depth[h - 352 : h, w - 1200 : w]  #for numpy
 
         # Transform to tensor
         transform = transforms.ToTensor()
 
         left_img = transform(left_img)
         right_img = transform(right_img)
-        left_depth = transform(left_depth)
-        # left_depth = torch.from_numpy(left_depth).float()
+        #left_depth = transform(left_depth)
+        left_depth = torch.from_numpy(left_depth).float()
 
         # Additional transforms if necessary
         if self.transform:
@@ -110,7 +110,7 @@ class PLDataset(Dataset):
             for row in reader:
                 self.left_image_paths.append(row[0] + "/left_rgb.png")
                 self.right_image_paths.append(row[0] + "/right_rgb.png")
-                self.left_depths.append(row[0] + "/left_depth.png")
+                self.left_depths.append(row[0] + "/left_disp.npy") #left_depth.png
 
     def _load_data(self, n_samples):
         # normalize data
