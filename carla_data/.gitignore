@@ -2,4 +2,4 @@ carla/
 CARLA_0.9.14/
 CARLA_0.9.15/
 __pycache__/
-config.py
+config.ini

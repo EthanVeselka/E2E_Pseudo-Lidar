@@ -1,7 +1,7 @@
 import sys
 import carla
-import automatic_control as ac  # Taken from Carla's example code
-import generate_traffic as gt  # Taken from Carla's example code
+import automatic_control as ac # Taken from Carla's example code
+import generate_traffic as gt # Taken from Carla's example code
 import argparse
 import logging
 import pygame
@@ -14,6 +14,8 @@ from pascal_voc_writer import Writer
 import xml.etree.ElementTree as ET
 import configparser
 import threading
+import shutil
+from math import tan, pi
     
 from agents.navigation.behavior_agent import BehaviorAgent 
 from agents.navigation.basic_agent import BasicAgent  
@@ -39,7 +41,11 @@ EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
 WEATHER = int(conf["External Variables"]["WEATHER"])
 MAP = conf["External Variables"]["MAP"]
 
+FILES_PER_FRAME = 6
+output_path = ''
 
+position_dict = {}
+first_data_frame = None
 
 def build_projection_matrix(w, h, fov):
     focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
@@ -49,27 +55,26 @@ def build_projection_matrix(w, h, fov):
     K[1, 2] = h / 2.0
     return K
 
-
 def get_image_point(loc, K, w2c):
-    # Calculate 2D projection of 3D coordinate
+        # Calculate 2D projection of 3D coordinate
 
-    # Format the input coordinate (loc is a carla.Position object)
-    point = np.array([loc.x, loc.y, loc.z, 1])
-    # transform to camera coordinates
-    point_camera = np.dot(w2c, point)
+        # Format the input coordinate (loc is a carla.Position object)
+        point = np.array([loc.x, loc.y, loc.z, 1])
+        # transform to camera coordinates
+        point_camera = np.dot(w2c, point)
 
-    # New we must change from UE4's coordinate system to a "standard"
-    # (x, y ,z) -> (y, -z, x)
-    # and we remove the fourth component also
-    point_camera = [point_camera[1], -point_camera[2], point_camera[0]]
+        # New we must change from UE4's coordinate system to an "standard"
+        # (x, y ,z) -> (y, -z, x)
+        # and we remove the fourth componebonent also
+        point_camera = [point_camera[1], -point_camera[2], point_camera[0]]
 
-    # now project 3D->2D using the camera matrix
-    point_img = np.dot(K, point_camera)
-    # normalize
-    point_img[0] /= point_img[2]
-    point_img[1] /= point_img[2]
+        # now project 3D->2D using the camera matrix
+        point_img = np.dot(K, point_camera)
+        # normalize
+        point_img[0] /= point_img[2]
+        point_img[1] /= point_img[2]
 
-    return point_img[0:2]
+        return point_img[0:2]
 
 
 def indent(elem, level=0):
@@ -86,16 +91,86 @@ def indent(elem, level=0):
     else:
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
+
+def build_calibration_mat(values):
+    flip = np.array([[ 0, 1, 0 ], [ 0, 0, -1 ], [ 1, 0, 0 ]], dtype=np.float32)
+
+    x = values['x']
+    y = values['y']
+    z = values['z']
+    pitch = values['pitch']
+    roll = values['roll']
+    yaw = values['yaw']
+    fov = CAMERA_FOV
+    Cx = CAMERA_X / 2
+    Cy = CAMERA_Y / 2
+
+    f = CAMERA_X /(2.0 * tan(fov * pi / 360))
+    K = np.array([[f, 0, Cx], [0, f, Cy], [0, 0, 1]], dtype=np.float64)
+    
+
+    c_y = np.cos(np.radians(yaw))
+    s_y = np.sin(np.radians(yaw))
+    c_r = np.cos(np.radians(roll))
+    s_r = np.sin(np.radians(roll))
+    c_p = np.cos(np.radians(pitch))
+    s_p = np.sin(np.radians(pitch))
+    matrix = np.identity(4)
+    matrix[0, 3] = x
+    matrix[1, 3] = y
+    matrix[2, 3] = z
+    matrix[0, 0] = c_p * c_y
+    matrix[0, 1] = c_y * s_p * s_r - s_y * c_r
+    matrix[0, 2] = -c_y * s_p * c_r - s_y * s_r
+    matrix[1, 0] = s_y * c_p
+    matrix[1, 1] = s_y * s_p * s_r + c_y * c_r
+    matrix[1, 2] = -s_y * s_p * c_r + c_y * s_r
+    matrix[2, 0] = s_p
+    matrix[2, 1] = -c_p * s_r
+    matrix[2, 2] = c_p * c_r
+    matrix = np.linalg.inv(matrix)
+    
+    P = K @ flip @ matrix[:3, :]
+    print('K')
+    print(K)
+    print('mat')
+    print(matrix)
+    print('P')
+    print(P)
+    return P
+
             
-
-
-def save_boxes(world, name, sample_path, transform, player_transform):
-    # print(world.player.get_transform().location)
+def save_boxes(world, sample_path, transform, frame_num):
+    global position_dict
+    global first_data_frame
+    
+    #print(world.player.get_transform().location)
     # Create the XML structure
+    
     root = ET.Element("StaticBoundingBoxes")
     tree = ET.ElementTree(root)
     #bbs = world.world.get_level_bbs(carla.CityObjectLabel.Car)
+    transform = transform
+    #print('looking for:', frame_num)
+    new_frame = 0
+    found_frame = False
     
+    
+    saved_frame_num = frame_num-first_data_frame+1
+    for i in range(2):
+        if first_data_frame is not None and saved_frame_num in position_dict:
+            transform = position_dict[saved_frame_num]
+            found_frame = True
+            break
+        else:
+            #print('frame missed:', frame_num)
+            #print('keys:', position_dict.keys())
+            time.sleep(1)
+    
+
+    if not found_frame:
+        print('frame oofed:', frame_num)
+            
     #print(bounding_box_set)
     
     filters = [
@@ -114,24 +189,13 @@ def save_boxes(world, name, sample_path, transform, player_transform):
         carla.CityObjectLabel.GuardRail,
         carla.CityObjectLabel.Water,
         carla.CityObjectLabel.Terrain,
+        carla.CityObjectLabel.TrafficLight,
+        carla.CityObjectLabel.TrafficSigns,
         ]
 
     
     world_2_camera = np.array(transform.get_inverse_matrix())
-    edges = [
-        [0, 1],
-        [1, 3],
-        [3, 2],
-        [2, 0],
-        [0, 4],
-        [4, 5],
-        [5, 1],
-        [5, 7],
-        [7, 6],
-        [6, 4],
-        [6, 2],
-        [7, 3],
-    ]
+    edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
     K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
     bounding_box_set = []
     
@@ -141,17 +205,17 @@ def save_boxes(world, name, sample_path, transform, player_transform):
             bounding_box_set.append((obj, bb))
     count = 0
     for label, bb in bounding_box_set:
-
+        
         # Filter for distance from ego vehicle
-        if bb.location.distance(player_transform.location) < 50:
+        if bb.location.distance(transform.location) < 50:
 
             # Calculate the dot product between the forward vector
             # of the vehicle and the vector between the vehicle
             # and the bounding box. We threshold this dot product
             # to limit to drawing bounding boxes IN FRONT OF THE CAMERA
-            forward_vec = player_transform.get_forward_vector()
-            ray = bb.location - player_transform.location
-
+            forward_vec = transform.get_forward_vector()
+            ray = bb.location - transform.location
+            
             if forward_vec.dot(ray) > 1:
                 # Cycle through the vertices
                 bbox_elem = ET.SubElement(root, "BoundingBox")
@@ -182,14 +246,27 @@ def save_boxes(world, name, sample_path, transform, player_transform):
                     on_screen.set('on_screen', 'true')
                 else:
                     on_screen.set('on_screen', 'false')
+                    
+                # Store center of object
+                bbox_elem_center = ET.SubElement(bbox_elem, "center")
+                bbox_elem_center.set("x", str(bb.location.x))
+                bbox_elem_center.set("y", str(bb.location.y))
+                bbox_elem_center.set("z", str(bb.location.z))
+                
+                # Store 2D Box values
+                bbox_elem_2d_box = ET.SubElement(bbox_elem, "Box2d")
+                bbox_elem_2d_box.set("xMin", str(x_min))
+                bbox_elem_2d_box.set("xMax", str(x_max))
+                bbox_elem_2d_box.set("yMin", str(y_min))
+                bbox_elem_2d_box.set("yMax", str(y_max))
                 
                 for edge in edges:
                     # Join the vertices into edges
                     p1 = get_image_point(verts[edge[0]], K, world_2_camera)
-                    p2 = get_image_point(verts[edge[1]], K, world_2_camera)
-
+                    p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
+                    
                     bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
-
+                    
                     bbox_elem_edge.set("x1", str(p1[0]))
                     bbox_elem_edge.set("y1", str(p1[1]))
                     bbox_elem_edge.set("x2", str(p2[0]))
@@ -199,88 +276,89 @@ def save_boxes(world, name, sample_path, transform, player_transform):
                     
 
     # Save the bounding boxes in the scene
-    filename = "static_bbs.xml"
+    filename = 'static_bbs.xml'
     file_path = os.path.join(sample_path, filename)
     indent(root)
     tree.write(file_path)
+
                 
 
 def rgb_callback(data, name, episode_path, world, player_transform):
-    sample_path = os.path.join(episode_path, str(data.frame))
-    # print(sample_path)
+    global first_data_frame
 
+    sample_path = os.path.join(episode_path, str(data.frame))
+    #print(sample_path)
+    if first_data_frame is None:
+        first_data_frame = data.frame
+        print('first_data_frame:', first_data_frame)
     # Folder may already exist
     try:
         if not os.path.exists(sample_path):
-            # print(sample_path)
+            #print(sample_path)
             os.mkdir(sample_path)
     except:
         None
     finally:
-        file_name = "%s.png" % name
+        file_name = '%s.png' % name
         full_path = os.path.join(sample_path, file_name)
         data.save_to_disk(full_path)
         
         if name == 'left_rgb':
-            save_boxes(world, name, sample_path, data.transform, player_transform)
+            #world, sample_path, transform, frame_num
+            save_boxes(world, sample_path, data.transform, data.frame)
     
 def depth_callback(data, name, episode_path):
+    global position_dict
+    
     sample_path = os.path.join(episode_path, str(data.frame))
-    # print(sample_path)
-
+    #print(sample_path)
+    
     # Folder may already exist
     try:
         if not os.path.exists(sample_path):
-            # print(sample_path)
+            #print(sample_path)
             os.mkdir(sample_path)
     except:
         None
     finally:
-        file_name = "%s.png" % name
+        file_name = '%s.png' % name
         full_path = os.path.join(sample_path, file_name)
         data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
     
 def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
-    sample_path = os.path.join(episode_path, str(data.frame))
+    global first_data_frame
+    global position_dict
 
+    sample_path = os.path.join(episode_path, str(data.frame))
+    
     try:
         if not os.path.exists(sample_path):
-            # print(sample_path)
+            #print(sample_path)
             os.mkdir(sample_path)
     except:
         None
     finally:
-        file_name = "%s.ply" % name
+        # Save semantic lidar data to path
+        file_name = '%s.ply' % name
         full_path = os.path.join(sample_path, file_name)
         data.save_to_disk(full_path)
-
+        
         actor_set = set()
-
+        
         # Get unique actors from lidar data
         for point in data:
             if point.object_idx:
                 actor_set.add(point.object_idx)
-
+        
+        # All unique edges needed to create bounding box
+        edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
+        
         world_2_camera = np.array(data.transform.get_inverse_matrix())
-        edges = [
-            [0, 1],
-            [1, 3],
-            [3, 2],
-            [2, 0],
-            [0, 4],
-            [4, 5],
-            [5, 1],
-            [5, 7],
-            [7, 6],
-            [6, 4],
-            [6, 2],
-            [7, 3],
-        ]
         K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
-
+        
         root = ET.Element("DynamicBoundingBoxes")
         tree = ET.ElementTree(root)
-
+        
         for actor_id in actor_set:
             actor = actors.find(actor_id)
             
@@ -289,11 +367,62 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
                 continue
             
             bbox_elem = ET.SubElement(root, "BoundingBox")
-            bbox_elem.set("class", str(type(actor)))
+            bbox_elem.set("class", str(type(actor)).split("'")[1])
+            position_transform = bb_transform_dict[actor_id][1]
+
+            good_frame = False
+            world_2_camera = np.array(data.transform.get_inverse_matrix())
+            
+            for i in range(2):
+                if first_data_frame is None:
+                    print('no first frame')
+                    time.sleep(1)
+                    continue
+                saved_frame_num = data.frame-first_data_frame + 1
+                if saved_frame_num not in position_dict:
+                    print('not in dict')
+                    time.sleep(1)
+                    continue
+                good_frame = True
+                world_2_camera = np.array(position_dict[saved_frame_num].get_inverse_matrix())
+
+            if not good_frame:
+                print('lidar frame oofed:', data.frame)
+            
 
             bb = bb_transform_dict[actor_id][0]
-            verts = [v for v in bb.get_world_vertices(bb_transform_dict[actor_id][1])]
+            verts = [v for v in bb.get_world_vertices(position_transform)]
             counter = 0
+            
+            bbox_elem.set("actorId", str(actor_id))
+            
+            x_max = -10000
+            x_min = 10000
+            y_max = -10000
+            y_min = 10000
+            for vert in verts:
+                p = get_image_point(vert, K, world_2_camera)
+                if p[0] > x_max:
+                    x_max = p[0]
+                if p[0] < x_min:
+                    x_min = p[0]
+                if p[1] > y_max:
+                    y_max = p[1]
+                if p[1] < y_min:
+                    y_min = p[1]
+            
+            # Store center of object
+            bbox_elem_center = ET.SubElement(bbox_elem, "center")
+            bbox_elem_center.set("x", str(bb_transform_dict[actor_id][1].location.x))
+            bbox_elem_center.set("y", str(bb_transform_dict[actor_id][1].location.y))
+            bbox_elem_center.set("z", str(bb_transform_dict[actor_id][1].location.z))
+            
+            # Store 2D Box values
+            bbox_elem_2d_box = ET.SubElement(bbox_elem, "Box2d")
+            bbox_elem_2d_box.set("xMin", str(x_min))
+            bbox_elem_2d_box.set("xMax", str(x_max))
+            bbox_elem_2d_box.set("yMin", str(y_min))
+            bbox_elem_2d_box.set("yMax", str(y_max))
             
             for edge in edges:
                     # Join the vertices into edges
@@ -310,11 +439,14 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
                     counter += 1
         
         # Save the bounding boxes in the scene
-        filename = "dynamic_bbs.xml"
+        filename = 'dynamic_bbs.xml'
         file_path = os.path.join(sample_path, filename)
         indent(root)
         tree.write(file_path)
+    
 
+    
+ 
 
 def prep_episode(client, args, iteration_name, episode_name): # uses code from automatic_control.py and generate_traffic.py
     """
@@ -329,11 +461,12 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
         if args.seed:
             random.seed(args.seed)
 
+
         traffic_manager = client.get_trafficmanager(args.tm_port)
         sim_world = client.get_world()
         settings = sim_world.get_settings()
-        # settings.fixed_delta_seconds = 1/POLL_RATE
-
+        #settings.fixed_delta_seconds = 1/POLL_RATE
+        
         if not args.asynch:
             settings.synchronous_mode = True
             settings.fixed_delta_seconds = 0.05
@@ -342,14 +475,17 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
             traffic_manager.set_synchronous_mode(True)
 
         display = pygame.display.set_mode(
-            (args.width, args.height), pygame.HWSURFACE | pygame.DOUBLEBUF
-        )
+            (args.width, args.height),
+            pygame.HWSURFACE | pygame.DOUBLEBUF)
 
         hud = ac.HUD(args.width, args.height)
-
+        
+        
         world = ac.World(client.get_world(), hud, args)
         controller = ac.KeyboardControl(world)
-
+        
+        
+        
         if args.agent == "Basic":
             agent = BasicAgent(world.player, 30)
             agent.follow_speed_limits(True)
@@ -360,17 +496,22 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
                 world.player.set_location(ground_loc.location + carla.Location(z=0.01))
             agent.follow_speed_limits(True)
         elif args.agent == "Behavior":
-            agent = BehaviorAgent(world.player, behavior=args.behavior)
+            agent = BehaviorAgent(world.player, behavior=args.behavior) 
 
         # Set the agent destination
         spawn_points = world.map.get_spawn_points()
         destination = random.choice(spawn_points).location
         agent.set_destination(destination)
-
-        # sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=vehicle)
+        
+    
+        
+        
+        #sensor = world.spawn_actor(blueprint, carla.Transform(), attach_to=vehicle)
         # Create data paths and directories
+        global output_path
+        
         ts = datetime.datetime.now()
-        data_path = os.path.join(DATA_PATH)
+        data_path = os.path.join(DATA_PATH) 
         episode_path = os.path.join(data_path, episode_name)
         iteration_path = os.path.join(episode_path, iteration_name)
         output_path = os.path.join(iteration_path, str(ts).replace(':', '-').replace('.', '-').replace(' ', '_'))
@@ -382,7 +523,7 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
             os.mkdir(iteration_path)
         
         os.mkdir(output_path)
-
+        
         # Store config in data directories
         with open(os.path.join(episode_path, "config.ini"), 'w') as dest:
             config = "[Internal Variables]\nEGO_BEHAVIOR = " + EGO_BEHAVIOR
@@ -392,38 +533,60 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
             config = "[External Variables]\nEXTERNAL_BEHAVIOR = " + EXTERNAL_BEHAVIOR + "\nWEATHER = " + str(WEATHER) + "\nMAP = " + MAP
             dest.write(config)
 
+        # get camera calibration matricies
+        left_rgb_vals = {
+                'x' : 0,
+                'y' : 0,
+                'z' : 0,
+                'pitch' : 0,
+                'roll' : 0,
+                'yaw' : 0,
+        }
+        left_mat = build_calibration_mat(left_rgb_vals)
+
+        right_rgb_vals = {
+                'x' : 0,
+                'y' : 0.5,
+                'z' : 0,
+                'pitch' : 0,
+                'roll' : 0,
+                'yaw' : 0,
+        }
+        right_mat = build_calibration_mat(right_rgb_vals)
+
+        # save camera calibration to episode directory
+        left_path = os.path.join(episode_path, "left_rgb_mat.csv")
+        right_path = os.path.join(episode_path, "right_rgb_mat.csv")
+        np.savetxt(left_path, left_mat, delimiter=",")
+        np.savetxt(right_path, right_mat, delimiter=",")
+                
+       
         bp_library = world.world.get_blueprint_library()
-        rgb_bp = bp_library.find("sensor.camera.rgb")
-        rgb_bp.set_attribute("image_size_x", str(CAMERA_X))
-        rgb_bp.set_attribute("image_size_y", str(CAMERA_Y))
-        rgb_bp.set_attribute("sensor_tick", str(1 / POLL_RATE))
-
+        rgb_bp = bp_library.find('sensor.camera.rgb')
+        rgb_bp.set_attribute('image_size_x', str(CAMERA_X))
+        rgb_bp.set_attribute('image_size_y', str(CAMERA_Y))
+        rgb_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
+        
         transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8))
-        l_rgb = world.world.spawn_actor(
-            rgb_bp,
-            transform,
-            attach_to=world.player,
-            attachment_type=carla.AttachmentType.Rigid,
-        )
-
-        rgb_bp = bp_library.find("sensor.camera.rgb")
-        rgb_bp.set_attribute("image_size_x", str(CAMERA_X))
-        rgb_bp.set_attribute("image_size_y", str(CAMERA_Y))
-        rgb_bp.set_attribute("sensor_tick", str(1 / POLL_RATE))
-
+        l_rgb = world.world.spawn_actor(rgb_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
+        
+        
+        
+        
+        rgb_bp = bp_library.find('sensor.camera.rgb')
+        rgb_bp.set_attribute('image_size_x', str(CAMERA_X))
+        rgb_bp.set_attribute('image_size_y', str(CAMERA_Y))
+        rgb_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
+        
         transform = carla.Transform(carla.Location(x=0.60, y=0.25, z=1.8))
-        r_rgb = world.world.spawn_actor(
-            rgb_bp,
-            transform,
-            attach_to=world.player,
-            attachment_type=carla.AttachmentType.Rigid,
-        )
-
-        depth_bp = bp_library.find("sensor.camera.depth")
-        depth_bp.set_attribute("image_size_x", str(CAMERA_X))
-        depth_bp.set_attribute("image_size_y", str(CAMERA_Y))
-        depth_bp.set_attribute("sensor_tick", str(1 / POLL_RATE))
-
+        r_rgb = world.world.spawn_actor(rgb_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
+        
+        
+        depth_bp = bp_library.find('sensor.camera.depth')
+        depth_bp.set_attribute('image_size_x', str(CAMERA_X))
+        depth_bp.set_attribute('image_size_y', str(CAMERA_Y))
+        depth_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
+        
         transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8))
         depth = world.world.spawn_actor(depth_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
         
@@ -435,23 +598,19 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
         l_rgb.listen(l_rgb_callback)
         r_rgb.listen(r_rgb_callback)
         depth.listen(l_depth_callback)
-
+        
+        
         sensors = [l_rgb, r_rgb, depth]
 
-        return (
-            world,
-            controller,
-            display,
-            hud,
-            agent,
-            traffic_manager,
-            sensors,
-            output_path,
-        )
-
+        
+        return world, controller, display, hud, agent, traffic_manager, sensors, output_path
+            
     except Exception as e:
-        print("Something went wrong setting up the simulation episode:")
-        raise (e)
+        print('Something went wrong setting up the simulation episode:')
+        
+        raise(e)
+        
+    
 
 def sim_episode(client, args, iteration_name, episode_name): # uses code from automatic_control.py and generate_traffic.py
     """
@@ -461,7 +620,10 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
     cameras set. Calls prep_episode() to spawn player and set cameras.
     """
 
+    global position_dict
+    
     world, controller, display, hud, agent, traffic_manager, sensors, output_path = prep_episode(client, args, iteration_name, episode_name)
+    
 
     try:
         spawn_points = world.map.get_spawn_points()
@@ -469,13 +631,17 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
         num_ticks = 0
         first_tick = True
         s_lidar = None
-
+        main_cam = sensors[0]
+        
         while num_ticks < 2000:
             clock.tick()
-
+           
             if not args.asynch:
+                
+                position_dict[num_ticks] = main_cam.get_transform()
+                #print(position_dict.keys())
                 world.world.tick()
-
+                
                 # Initialize semantic lidar on first tick
                 if first_tick:
                     bp_library = world.world.get_blueprint_library()
@@ -487,30 +653,34 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
                     s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
                     s_lidar_bp.set_attribute('lower_fov', str(-30.0))
                     s_lidar_bp.set_attribute('upper_fov', str(30.0))
-                    s_lidar_bp.set_attribute('channels', str(128.0))
+                    s_lidar_bp.set_attribute('points_per_second', str(224000))
+                    s_lidar_bp.set_attribute('channels', str(128.0)) 
                     transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
                     
                     lid_callback = lambda data: threading.Thread(target = lidar_callback, args = (data, 'left_lidar', output_path, world.world.get_actors(), {actor.id: (actor.bounding_box, actor.get_transform()) for actor in world.world.get_actors()})).start()
                     s_lidar.listen(lid_callback)
-
+                    
                     first_tick = False
-
+                
             else:
                 world.world.wait_for_tick()
             if controller.parse_events():
                 return
-
-            # print('sim_time_now:', sim_time_now)
-
+            
+            #print('sim_time_now:', sim_time_now)
+            
             world.tick(clock)
             world.render(display)
             pygame.display.flip()
-
+            
+                
+                
             if agent.done():
                 agent.set_destination(random.choice(spawn_points).location)
                 world.hud.notification("Target reached", seconds=4.0)
                 print("The target has been reached, searching for another target")
+                
 
             control = agent.run_step()
             control.manual_gear_shift = False
@@ -518,7 +688,7 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
             num_ticks += 1
 
     finally:
-
+        
         # Join all threads, not most eloquent solution but prevents simulation from ending while data is being processed in some cases
         for thread in threading.enumerate():
             if thread is not threading.currentThread():
@@ -533,7 +703,7 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
             settings.fixed_delta_seconds = None
             world.world.apply_settings(settings)
             traffic_manager.set_synchronous_mode(True)
-
+            
             for sensor in sensors:
                 sensor.destroy()
                 
@@ -542,186 +712,162 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
             world.destroy()
 
         pygame.quit()
-
-        time.sleep(60)
+        
+        time.sleep(5)
 
 
 def main():
     """Main method"""
 
-    argparser = argparse.ArgumentParser(description="CARLA Automatic Control Client")
+    argparser = argparse.ArgumentParser(
+        description='CARLA Automatic Control Client')
     argparser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        dest="debug",
-        help="Print debug information",
-    )
+        '-v', '--verbose',
+        action='store_true',
+        dest='debug',
+        help='Print debug information')
     argparser.add_argument(
-        "--host",
-        metavar="H",
-        default="127.0.0.1",
-        help="IP of the host server (default: 127.0.0.1)",
-    )
+        '--host',
+        metavar='H',
+        default='127.0.0.1',
+        help='IP of the host server (default: 127.0.0.1)')
     argparser.add_argument(
-        "-p",
-        "--port",
-        metavar="P",
+        '-p', '--port',
+        metavar='P',
         default=2000,
         type=int,
-        help="TCP port to listen to (default: 2000)",
-    )
+        help='TCP port to listen to (default: 2000)')
     argparser.add_argument(
         '--res',
         metavar='WIDTHxHEIGHT',
         default='640x400',
         help='Window resolution (default: 1280x720)')
     argparser.add_argument(
-        "--filter",
-        metavar="PATTERN",
-        default="vehicle.nissan.patrol_2021",
-        help='Actor model filter (default: "vehicle.nissan.patrol_2021")',
-    )
+        '--filter',
+        metavar='PATTERN',
+        default='vehicle.nissan.patrol_2021',
+        help='Actor model filter (default: "vehicle.nissan.patrol_2021")')
     argparser.add_argument(
-        "--player-color",
-        metavar="PLAYER_COLOR",
-        default="150,150,150",
-        help='Set a specific color for player car, like ["r, g, b"], where 255 is the max value',
-    )
+        '--player-color',
+        metavar='PLAYER_COLOR',
+        default='150,150,150',
+        help='Set a specific color for player car, like ["r, g, b"], where 255 is the max value')
     argparser.add_argument(
-        "--generation",
-        metavar="G",
-        default="2",
-        help='restrict to certain actor generation (values: "1","2","All" - default: "2")',
-    )
+        '--generation',
+        metavar='G',
+        default='2',
+        help='restrict to certain actor generation (values: "1","2","All" - default: "2")')
     argparser.add_argument(
-        "--tm-port",
-        metavar="P",
+        '--tm-port',
+        metavar='P',
         default=8000,
         type=int,
-        help="Port to communicate with TM (default: 8000)",
-    )
+        help='Port to communicate with TM (default: 8000)')
     argparser.add_argument(
-        "--asynch", action="store_true", help="Activate asynchronous mode execution"
-    )
+        '--asynch',
+        action='store_true',
+        help='Activate asynchronous mode execution')
     argparser.add_argument(
-        "-a",
-        "--agent",
-        type=str,
+        "-a", "--agent", type=str,
         choices=["Behavior", "Basic", "Constant"],
         help="select which agent to run",
-        default="Behavior",
-    )
+        default="Behavior")
     argparser.add_argument(
-        "-b",
-        "--behavior",
-        type=str,
+        '-b', '--behavior', type=str,
         choices=["cautious", "normal", "aggressive"],
-        help="Choose one of the possible agent behaviors (default: normal) ",
-        default="normal",
-    )
+        help='Choose one of the possible agent behaviors (default: normal) ',
+        default='normal')
     argparser.add_argument(
-        "-s",
-        "--seed",
-        help="Set seed for repeating executions (default: None)",
+        '-s', '--seed',
+        help='Set seed for repeating executions (default: None)',
         default=None,
-        type=int,
-    )
+        type=int)
     argparser.add_argument(
-        "--seedw",
-        metavar="S",
+        '--seedw',
+        metavar='S',
         default=0,
         type=int,
-        help="Set the seed for pedestrians module",
-    )
+        help='Set the seed for pedestrians module')
     argparser.add_argument(
-        "-n",
-        "--number-of-vehicles",
-        metavar="N",
+        '-n', '--number-of-vehicles',
+        metavar='N',
         default=30,
         type=int,
-        help="Number of vehicles (default: 30)",
-    )
+        help='Number of vehicles (default: 30)')
     argparser.add_argument(
-        "-w",
-        "--number-of-walkers",
-        metavar="W",
+        '-w', '--number-of-walkers',
+        metavar='W',
         default=10,
         type=int,
-        help="Number of walkers (default: 10)",
-    )
+        help='Number of walkers (default: 10)')
     argparser.add_argument(
-        "--safe", action="store_true", help="Avoid spawning vehicles prone to accidents"
-    )
+        '--safe',
+        action='store_true',
+        help='Avoid spawning vehicles prone to accidents')
     argparser.add_argument(
-        "--respawn",
-        action="store_true",
+        '--respawn',
+        action='store_true',
         default=False,
-        help="Automatically respawn dormant vehicles (only in large maps)",
-    )
+        help='Automatically respawn dormant vehicles (only in large maps)')
     argparser.add_argument(
-        "--hybrid", action="store_true", help="Activate hybrid mode for Traffic Manager"
-    )
+        '--hybrid',
+        action='store_true',
+        help='Activate hybrid mode for Traffic Manager')
     argparser.add_argument(
-        "--no-rendering",
-        action="store_true",
+        '--no-rendering',
+        action='store_true',
         default=False,
-        help="Activate no rendering mode",
-    )
+        help='Activate no rendering mode')
     argparser.add_argument(
-        "--filterv",
-        metavar="PATTERN",
-        default="vehicle.*",
-        help='Filter vehicle model (default: "vehicle.*")',
-    )
+        '--filterv',
+        metavar='PATTERN',
+        default='vehicle.*',
+        help='Filter vehicle model (default: "vehicle.*")')
     argparser.add_argument(
-        "--generationv",
-        metavar="G",
-        default="All",
-        help='restrict to certain vehicle generation (values: "1","2","All" - default: "All")',
-    )
+        '--generationv',
+        metavar='G',
+        default='All',
+        help='restrict to certain vehicle generation (values: "1","2","All" - default: "All")')
     argparser.add_argument(
-        "--filterw",
-        metavar="PATTERN",
-        default="walker.pedestrian.*",
-        help='Filter pedestrian type (default: "walker.pedestrian.*")',
-    )
+        '--filterw',
+        metavar='PATTERN',
+        default='walker.pedestrian.*',
+        help='Filter pedestrian type (default: "walker.pedestrian.*")')
     argparser.add_argument(
-        "--generationw",
-        metavar="G",
-        default="2",
-        help='restrict to certain pedestrian generation (values: "1","2","All" - default: "2")',
-    )
+        '--generationw',
+        metavar='G',
+        default='2',
+        help='restrict to certain pedestrian generation (values: "1","2","All" - default: "2")')
     argparser.add_argument(
-        "--car-lights-on",
-        action="store_true",
+        '--car-lights-on',
+        action='store_true',
         default=False,
-        help="Enable automatic car light management",
-    )
+        help='Enable automatic car light management')
     argparser.add_argument(
-        "--weather",
-        action="store",
+        '--weather',
+        action='store',
         default=carla.WeatherParameters.Default,
-        help="Set weather preset",
-    )
+        help='Set weather preset')
     argparser.add_argument(
-        "--map", action="store", type=str, default="Town01", help="Set map name"
-    )
+        '--map',
+        action='store',
+        type=str,
+        default="Town01",
+        help='Set map name')
     argparser.add_argument(
-        "--external_behavior",
-        action="store",
+        '--external_behavior',
+        action='store',
         choices=["cautious", "normal", "aggressive"],
         type=str,
         default="normal",
-        help="Set behavior of external drivers",
-    )
+        help='Set behavior of external drivers')
 
     args = argparser.parse_args()
-
-    # args.asynch = True
-
-    args.width, args.height = [int(x) for x in args.res.split("x")]
-
+    
+    #args.asynch = True
+    
+    args.width, args.height = [int(x) for x in args.res.split('x')]
+    
     # List of weather presets
     weathers = [carla.WeatherParameters.Default, carla.WeatherParameters.ClearNoon, carla.WeatherParameters.CloudyNoon, carla.WeatherParameters.WetNoon, carla.WeatherParameters.WetCloudyNoon, carla.WeatherParameters.MidRainyNoon, carla.WeatherParameters.HardRainNoon, carla.WeatherParameters.SoftRainNoon, carla.WeatherParameters.ClearSunset, carla.WeatherParameters.CloudySunset, carla.WeatherParameters.WetSunset, carla.WeatherParameters.WetCloudySunset, carla.WeatherParameters.MidRainSunset, carla.WeatherParameters.HardRainSunset, carla.WeatherParameters.SoftRainSunset]
     
@@ -739,11 +885,11 @@ def main():
     args.map = MAP
     
     log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(format="%(levelname)s: %(message)s", level=log_level)
+    logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 
-    logging.info("listening to server %s:%s", args.host, args.port)
+    logging.info('listening to server %s:%s', args.host, args.port)
 
-    logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+    logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
     vehicles_list = []
     walkers_list = []
@@ -779,11 +925,9 @@ def main():
             else:
                 synchronous_master = False
         else:
-            print(
-                "You are currently in asynchronous mode. If this is a traffic simulation, \
+            print("You are currently in asynchronous mode. If this is a traffic simulation, \
             you could experience some issues. If it's not working correctly, switch to synchronous \
-            mode by using traffic_manager.set_synchronous_mode(True)"
-            )
+            mode by using traffic_manager.set_synchronous_mode(True)")
 
         if args.no_rendering:
             settings.no_rendering_mode = True
@@ -792,16 +936,12 @@ def main():
         blueprints = gt.get_actor_blueprints(world, args.filterv, args.generationv)
         if not blueprints:
             raise ValueError("Couldn't find any vehicles with the specified filters")
-        blueprintsWalkers = gt.get_actor_blueprints(
-            world, args.filterw, args.generationw
-        )
+        blueprintsWalkers = gt.get_actor_blueprints(world, args.filterw, args.generationw)
         if not blueprintsWalkers:
             raise ValueError("Couldn't find any walkers with the specified filters")
 
         if args.safe:
-            blueprints = [
-                x for x in blueprints if x.get_attribute("base_type") == "car"
-            ]
+            blueprints = [x for x in blueprints if x.get_attribute('base_type') == 'car']
 
         blueprints = sorted(blueprints, key=lambda bp: bp.id)
 
@@ -811,7 +951,7 @@ def main():
         if args.number_of_vehicles < number_of_spawn_points:
             random.shuffle(spawn_points)
         elif args.number_of_vehicles > number_of_spawn_points:
-            msg = "requested %d vehicles, but could only find %d spawn points"
+            msg = 'requested %d vehicles, but could only find %d spawn points'
             logging.warning(msg, args.number_of_vehicles, number_of_spawn_points)
             args.number_of_vehicles = number_of_spawn_points
 
@@ -824,30 +964,23 @@ def main():
         # Spawn vehicles
         # --------------
         batch = []
-
+ 
         for n, transform in enumerate(spawn_points):
             if n >= args.number_of_vehicles:
                 break
             blueprint = random.choice(blueprints)
-            if blueprint.has_attribute("color"):
-                color = random.choice(
-                    blueprint.get_attribute("color").recommended_values
-                )
-                blueprint.set_attribute("color", color)
-            if blueprint.has_attribute("driver_id"):
-                driver_id = random.choice(
-                    blueprint.get_attribute("driver_id").recommended_values
-                )
-                blueprint.set_attribute("driver_id", driver_id)
+            if blueprint.has_attribute('color'):
+                color = random.choice(blueprint.get_attribute('color').recommended_values)
+                blueprint.set_attribute('color', color)
+            if blueprint.has_attribute('driver_id'):
+                driver_id = random.choice(blueprint.get_attribute('driver_id').recommended_values)
+                blueprint.set_attribute('driver_id', driver_id)
             else:
-                blueprint.set_attribute("role_name", "autopilot")
+                blueprint.set_attribute('role_name', 'autopilot')
 
             # spawn the cars and set their autopilot and light state all together
-            batch.append(
-                SpawnActor(blueprint, transform).then(
-                    SetAutopilot(FutureActor, True, traffic_manager.get_port())
-                )
-            )
+            batch.append(SpawnActor(blueprint, transform)
+                .then(SetAutopilot(FutureActor, True, traffic_manager.get_port())))
 
         for response in client.apply_batch_sync(batch, synchronous_master):
             if response.error:
@@ -860,7 +993,7 @@ def main():
             all_vehicle_actors = world.get_actors(vehicles_list)
             for actor in all_vehicle_actors:
                 traffic_manager.update_vehicle_lights(actor, True)
-
+                
         # Sets external vehicle behavior
         if args.external_behavior:
             all_vehicle_actors = world.get_actors(vehicles_list)
@@ -897,10 +1030,8 @@ def main():
         # Spawn Walkers
         # -------------
         # some settings
-        percentagePedestriansRunning = 0.0  # how many pedestrians will run
-        percentagePedestriansCrossing = (
-            0.0  # how many pedestrians will walk through the road
-        )
+        percentagePedestriansRunning = 0.0      # how many pedestrians will run
+        percentagePedestriansCrossing = 0.0     # how many pedestrians will walk through the road
         if args.seedw:
             world.set_pedestrians_seed(args.seedw)
             random.seed(args.seedw)
@@ -909,7 +1040,7 @@ def main():
         for i in range(args.number_of_walkers):
             spawn_point = carla.Transform()
             loc = world.get_random_location_from_navigation()
-            if loc != None:
+            if (loc != None):
                 spawn_point.location = loc
                 spawn_points.append(spawn_point)
         # 2. we spawn the walker object
@@ -918,20 +1049,16 @@ def main():
         for spawn_point in spawn_points:
             walker_bp = random.choice(blueprintsWalkers)
             # set as not invincible
-            if walker_bp.has_attribute("is_invincible"):
-                walker_bp.set_attribute("is_invincible", "false")
+            if walker_bp.has_attribute('is_invincible'):
+                walker_bp.set_attribute('is_invincible', 'false')
             # set the max speed
-            if walker_bp.has_attribute("speed"):
-                if random.random() > percentagePedestriansRunning:
+            if walker_bp.has_attribute('speed'):
+                if (random.random() > percentagePedestriansRunning):
                     # walking
-                    walker_speed.append(
-                        walker_bp.get_attribute("speed").recommended_values[1]
-                    )
+                    walker_speed.append(walker_bp.get_attribute('speed').recommended_values[1])
                 else:
                     # running
-                    walker_speed.append(
-                        walker_bp.get_attribute("speed").recommended_values[2]
-                    )
+                    walker_speed.append(walker_bp.get_attribute('speed').recommended_values[2])
             else:
                 print("Walker has no speed")
                 walker_speed.append(0.0)
@@ -947,15 +1074,9 @@ def main():
         walker_speed = walker_speed2
         # 3. we spawn the walker controller
         batch = []
-        walker_controller_bp = world.get_blueprint_library().find(
-            "controller.ai.walker"
-        )
+        walker_controller_bp = world.get_blueprint_library().find('controller.ai.walker')
         for i in range(len(walkers_list)):
-            batch.append(
-                SpawnActor(
-                    walker_controller_bp, carla.Transform(), walkers_list[i]["id"]
-                )
-            )
+            batch.append(SpawnActor(walker_controller_bp, carla.Transform(), walkers_list[i]["id"]))
         results = client.apply_batch_sync(batch, True)
         for i in range(len(results)):
             if results[i].error:
@@ -973,6 +1094,7 @@ def main():
             world.wait_for_tick()
         else:
             world.tick()
+            
 
         # 5. initialize each controller and set target to walk to (list is [controler, actor, controller, actor ...])
         # set how many pedestrians can cross the road
@@ -983,19 +1105,18 @@ def main():
             # set walk to random point
             all_actors[i].go_to_location(world.get_random_location_from_navigation())
             # max speed
-            all_actors[i].set_max_speed(float(walker_speed[int(i / 2)]))
+            all_actors[i].set_max_speed(float(walker_speed[int(i/2)]))
 
-        print(
-            "spawned %d vehicles and %d walkers, press Ctrl+C to exit."
-            % (len(vehicles_list), len(walkers_list))
-        )
-
+        print('spawned %d vehicles and %d walkers, press Ctrl+C to exit.' % (len(vehicles_list), len(walkers_list)))
+        
+        
+        
         try:
             sim_episode(client, args, iteration_name, episode_name)
         
         
         except KeyboardInterrupt:
-            print("\nCancelled by user. Bye!")
+            print('\nCancelled by user. Bye!')
     finally:
 
         if hasattr(args, "asynch") and args.asynch and synchronous_master:
@@ -1005,18 +1126,83 @@ def main():
             settings.fixed_delta_seconds = None
             world.apply_settings(settings)
 
-        print("\ndestroying %d vehicles" % len(vehicles_list))
+        print('\ndestroying %d vehicles' % len(vehicles_list))
         client.apply_batch([carla.command.DestroyActor(x) for x in vehicles_list])
 
         # stop walker controllers (list is [controller, actor, controller, actor ...])
         for i in range(0, len(all_id), 2):
             all_actors[i].stop()
 
-        print("\ndestroying %d walkers" % len(walkers_list))
+        print('\ndestroying %d walkers' % len(walkers_list))
         client.apply_batch([carla.command.DestroyActor(x) for x in all_id])
 
         time.sleep(0.5)
+        
+        clean_data()
 
+def match_dynamic_static(dynamic_objects, static_objects):
+    for dynamic_object in dynamic_objects:
+        closest_static = (None, float('inf'))
+        
+        # Get center position of dynamic object
+        dynamic_center_child = dynamic_object.find("center")
+        dynamic_center = carla.Location(float(dynamic_center_child.attrib['x']), float(dynamic_center_child.attrib['y']), float(dynamic_center_child.attrib['z']))
+        
+        for static_object in static_objects:
+            # Get center position of static object
+            static_center_child = static_object.find("center")
+            static_center = carla.Location(float(static_center_child.attrib['x']), float(static_center_child.attrib['y']), float(static_center_child.attrib['z']))
+            
+            # Compare to distance to previous closest static object
+            cur_distance = abs(dynamic_center.distance(static_center))
+            if cur_distance < closest_static[1]:
+                closest_static = (static_object, cur_distance)
+                
+        # Assign dynamic actor id to closest static object
+        if closest_static[0]:
+            closest_static[0].set("actorId", dynamic_object.attrib["actorId"])
 
-if __name__ == "__main__":
+def remove_unmatched_static(static_objects, static_tree):
+    for object in static_objects:
+        if "actorId" not in object.attrib:
+            static_tree.remove(object)
+
+def clean_data():
+    frames = os.scandir(output_path)
+    
+    for frame in frames:
+        
+        if frame.name == "config.ini":
+            continue
+        
+        frame_data = os.scandir(frame.path)
+        
+        # Remove frames that are missing data
+        if len(list(frame_data)) < FILES_PER_FRAME:
+            shutil.rmtree(frame)
+            continue
+        
+        dynamic_tree = ET.parse(os.path.join(frame.path, 'dynamic_bbs.xml'))
+        static_tree = ET.parse(os.path.join(frame.path, 'static_bbs.xml'))
+        
+        dynamic_tree_root = dynamic_tree.getroot()
+        static_tree_root = static_tree.getroot()
+        
+        dynamic_traffic_lights = dynamic_tree_root.findall('.//BoundingBox[@class="carla.libcarla.TrafficLight"]')
+        dynamic_traffic_signs = dynamic_tree_root.findall('.//BoundingBox[@class="carla.libcarla.TrafficSign"]')
+        
+        static_traffic_lights = static_tree_root.findall('.//BoundingBox[@class="TrafficLight"]')
+        static_traffic_signs = static_tree_root.findall('.//BoundingBox[@class="TrafficSign"]')
+        
+        # Match dynamic objects to static objects by distance
+        match_dynamic_static(dynamic_traffic_lights, static_traffic_lights)
+        match_dynamic_static(dynamic_traffic_signs, static_traffic_signs)
+        
+        remove_unmatched_static(static_traffic_lights, static_tree_root)
+        remove_unmatched_static(static_traffic_signs, static_tree_root)
+        
+        static_tree.write(os.path.join(frame.path, 'static_bbs.xml'))
+        
+
+if __name__ == '__main__':
     main()
