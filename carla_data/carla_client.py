@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 import configparser
 import threading
 import shutil
+from math import tan, pi
     
 from agents.navigation.behavior_agent import BehaviorAgent 
 from agents.navigation.basic_agent import BasicAgent  
@@ -90,6 +91,54 @@ def indent(elem, level=0):
     else:
         if level and (not elem.tail or not elem.tail.strip()):
             elem.tail = i
+
+def build_calibration_mat(values):
+    flip = np.array([[ 0, 1, 0 ], [ 0, 0, -1 ], [ 1, 0, 0 ]], dtype=np.float32)
+
+    x = values['x']
+    y = values['y']
+    z = values['z']
+    pitch = values['pitch']
+    roll = values['roll']
+    yaw = values['yaw']
+    fov = CAMERA_FOV
+    Cx = CAMERA_X / 2
+    Cy = CAMERA_Y / 2
+
+    f = CAMERA_X /(2.0 * tan(fov * pi / 360))
+    K = np.array([[f, 0, Cx], [0, f, Cy], [0, 0, 1]], dtype=np.float64)
+    
+
+    c_y = np.cos(np.radians(yaw))
+    s_y = np.sin(np.radians(yaw))
+    c_r = np.cos(np.radians(roll))
+    s_r = np.sin(np.radians(roll))
+    c_p = np.cos(np.radians(pitch))
+    s_p = np.sin(np.radians(pitch))
+    matrix = np.identity(4)
+    matrix[0, 3] = x
+    matrix[1, 3] = y
+    matrix[2, 3] = z
+    matrix[0, 0] = c_p * c_y
+    matrix[0, 1] = c_y * s_p * s_r - s_y * c_r
+    matrix[0, 2] = -c_y * s_p * c_r - s_y * s_r
+    matrix[1, 0] = s_y * c_p
+    matrix[1, 1] = s_y * s_p * s_r + c_y * c_r
+    matrix[1, 2] = -s_y * s_p * c_r + c_y * s_r
+    matrix[2, 0] = s_p
+    matrix[2, 1] = -c_p * s_r
+    matrix[2, 2] = c_p * c_r
+    matrix = np.linalg.inv(matrix)
+    
+    P = K @ flip @ matrix[:3, :]
+    print('K')
+    print(K)
+    print('mat')
+    print(matrix)
+    print('P')
+    print(P)
+    return P
+
             
 def save_boxes(world, sample_path, transform, frame_num):
     global position_dict
@@ -483,6 +532,33 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
         with open(os.path.join(output_path, "config.ini"), 'w') as dest:
             config = "[External Variables]\nEXTERNAL_BEHAVIOR = " + EXTERNAL_BEHAVIOR + "\nWEATHER = " + str(WEATHER) + "\nMAP = " + MAP
             dest.write(config)
+
+        # get camera calibration matricies
+        left_rgb_vals = {
+                'x' : 0,
+                'y' : 0,
+                'z' : 0,
+                'pitch' : 0,
+                'roll' : 0,
+                'yaw' : 0,
+        }
+        left_mat = build_calibration_mat(left_rgb_vals)
+
+        right_rgb_vals = {
+                'x' : 0,
+                'y' : 0.5,
+                'z' : 0,
+                'pitch' : 0,
+                'roll' : 0,
+                'yaw' : 0,
+        }
+        right_mat = build_calibration_mat(right_rgb_vals)
+
+        # save camera calibration to episode directory
+        left_path = os.path.join(episode_path, "left_rgb_mat.csv")
+        right_path = os.path.join(episode_path, "right_rgb_mat.csv")
+        np.savetxt(left_path, left_mat, delimiter=",")
+        np.savetxt(right_path, right_mat, delimiter=",")
                 
        
         bp_library = world.world.get_blueprint_library()
