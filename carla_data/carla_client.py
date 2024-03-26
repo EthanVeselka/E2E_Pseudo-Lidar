@@ -131,12 +131,6 @@ def build_calibration_mat(values):
     matrix = np.linalg.inv(matrix)
     
     P = K @ flip @ matrix[:3, :]
-    print('K')
-    print(K)
-    print('mat')
-    print(matrix)
-    print('P')
-    print(P)
     return P
 
             
