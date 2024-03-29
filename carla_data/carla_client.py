@@ -1132,7 +1132,8 @@ def main():
 
         time.sleep(0.5)
         
-        clean_data()
+        if output_path:
+            clean_data()
 
 def match_dynamic_static(dynamic_objects, static_objects):
     for dynamic_object in dynamic_objects:
@@ -1155,11 +1156,28 @@ def match_dynamic_static(dynamic_objects, static_objects):
         # Assign dynamic actor id to closest static object
         if closest_static[0]:
             closest_static[0].set("actorId", dynamic_object.attrib["actorId"])
+            # Update dynamic object edges to closest static
+            for i in range(12):
+                new_edge = closest_static[0].find("edge" + str(i))
+                old_edge = dynamic_object.find("edge" + str(i))
+                old_edge.set('x1', new_edge.get('x1'))
+                old_edge.set('y1', new_edge.get('y1'))
+                old_edge.set('x2', new_edge.get('x2'))
+                old_edge.set('y2', new_edge.get('y2'))
 
-def remove_unmatched_static(static_objects, static_tree):
+
+def move_unmatched_static(static_objects, static_tree, occlude_tree_root):
     for object in static_objects:
+        # Objects without actorId are obscured
         if "actorId" not in object.attrib:
-            static_tree.remove(object)
+            bbox_elem = ET.SubElement(occlude_tree_root, 'BoundingBox', attrib=object.attrib)
+            for child in object:
+                child_copy = ET.SubElement(bbox_elem, child.tag, attrib=child.attrib)
+                # Copy text content if any
+                if child.text:
+                    child_copy.text = child.text
+        
+        static_tree.remove(object)
 
 def clean_data():
     frames = os.scandir(output_path)
@@ -1186,18 +1204,24 @@ def clean_data():
         dynamic_traffic_signs = dynamic_tree_root.findall('.//BoundingBox[@class="carla.libcarla.TrafficSign"]')
         
         static_traffic_lights = static_tree_root.findall('.//BoundingBox[@class="TrafficLight"]')
-        static_traffic_signs = static_tree_root.findall('.//BoundingBox[@class="TrafficSign"]')
+        static_traffic_signs = static_tree_root.findall('.//BoundingBox[@class="TrafficSigns"]')
         
         # Match dynamic objects to static objects by distance
         match_dynamic_static(dynamic_traffic_lights, static_traffic_lights)
         match_dynamic_static(dynamic_traffic_signs, static_traffic_signs)
         
-        remove_unmatched_static(static_traffic_lights, static_tree_root)
-        remove_unmatched_static(static_traffic_signs, static_tree_root)
+        # Create occluded bb tree and populate with occluded boxes
+        occlude_tree_root = ET.Element("OccludedBoundingBoxes")
+        occlude_tree = ET.ElementTree(occlude_tree_root)
+        
+        move_unmatched_static(static_traffic_lights, static_tree_root, occlude_tree_root)
+        move_unmatched_static(static_traffic_signs, static_tree_root, occlude_tree_root)
+        
+        indent(occlude_tree_root)
         
         static_tree.write(os.path.join(frame.path, 'static_bbs.xml'))
-        
-
+        occlude_tree.write(os.path.join(frame.path, 'obscured_bbs.xml'))
+        dynamic_tree.write(os.path.join(frame.path, 'dynamic_bbs.xml'))
+    
 if __name__ == '__main__':
     main()
-    
