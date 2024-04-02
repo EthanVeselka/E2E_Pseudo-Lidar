@@ -19,6 +19,8 @@ def sample(root, config="config.ini", save_file_path="./output"):
     :type save_file_path: str
     """
 
+    print(os.getcwd())
+
     conf = configparser.ConfigParser()
     conf.read(os.path.join("processing",config))
 
@@ -56,6 +58,10 @@ def sample(root, config="config.ini", save_file_path="./output"):
     os.chdir(DATA_PATH)
     for episode in os.listdir(DATA_PATH):
         if episode == ".gitignore":
+            continue
+        if episode == "left_rgb_mat.csv":
+            continue
+        if episode == "calibmatrices.txt":
             continue
         os.chdir(episode)
         curr_dir = DATA_PATH + "/" + episode

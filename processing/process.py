@@ -27,7 +27,7 @@ def process(root, config, gen_disp=False):
     save_file_path = os.getcwd() + "/carla_data/output"
 
     if gen_disp:
-        gd.generate_disparity("../../carla_data/example_data")
+        gd.generate_disparity("carla_data/example_data")
 
     save_file_path = sample.sample(
         root, config, save_file_path
@@ -41,6 +41,8 @@ def process(root, config, gen_disp=False):
 
     # test loop
     for batch in pldl:
+       # for row in batch[2][0]:
+            #print(row)
         for images in batch:
             print(images.shape)
 

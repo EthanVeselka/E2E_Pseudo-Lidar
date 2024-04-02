@@ -39,8 +39,8 @@ class Calibration(object):
     def __init__(self, calib_filepath):
 
         calibs = self.read_calib_file(calib_filepath)
-        # Projection matrix from rect camera coord to image2 coord
-        self.P = calibs["P2"]
+        # Projection matrix from rect camera coord to image2 (left) coord
+        self.P = calibs["P0"]
         self.P = np.reshape(self.P, [3, 4])
         # Rigid transform from Velodyne coord to reference camera coord
         self.V2C = calibs["Tr_velo_to_cam"]
@@ -53,10 +53,15 @@ class Calibration(object):
         # Camera intrinsics and extrinsics
         self.c_u = self.P[0, 2]
         self.c_v = self.P[1, 2]
-        self.f_u = self.P[0, 0]
-        self.f_v = self.P[1, 1]
+        self.f_u = self.P[0, 0]     
+        self.f_v = self.P[1, 1] 
         self.b_x = self.P[0, 3] / (-self.f_u)  # relative
         self.b_y = self.P[1, 3] / (-self.f_v)
+        
+        #for i in self.P:
+            #for thing in i:
+               # print(i,thing)
+        print("self.f_v", self.f_v)
 
     def read_calib_file(self, filepath):
         """Read in a calibration file and parse into a dictionary.

@@ -60,10 +60,11 @@ class PLDataset(Dataset):
         right_img = self.rgbloader(self.right_image_paths[idx])
         left_depth = self.dploader(self.left_depths[idx])
 
+
         if self.task == "train":
             left_img, right_img, left_depth = self._rand_crop(
-                left_img, right_img, left_depth, 256, 512
-            )  # parameters will need to be adjusted
+                left_img, right_img, left_depth, 1080, 1920
+            )  # parameters will need to be adjusted 
         else:
             w, h = left_img.size
             left_img = left_img.crop((w - 1200, h - 352, w, h))
