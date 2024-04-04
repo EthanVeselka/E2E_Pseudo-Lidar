@@ -1180,10 +1180,9 @@ def move_unmatched_static(static_objects, static_tree, occlude_tree_root):
         static_tree.remove(object)
 
 def clean_data():
-    frames = os.scandir(output_path)
+    frames = list(os.scandir(output_path))
     
     for frame in frames:
-        
         if frame.name == "config.ini":
             continue
         
@@ -1222,6 +1221,25 @@ def clean_data():
         static_tree.write(os.path.join(frame.path, 'static_bbs.xml'))
         occlude_tree.write(os.path.join(frame.path, 'obscured_bbs.xml'))
         dynamic_tree.write(os.path.join(frame.path, 'dynamic_bbs.xml'))
+    
+    frame_count = len(frames)
+    
+    key = EGO_BEHAVIOR + "_" + EXTERNAL_BEHAVIOR + "_" + str(WEATHER) + "_" + MAP
+
+    config = configparser.ConfigParser()
+    config.read(os.path.join(DATA_PATH, "config.ini"))
+
+    if 'FRAMECOUNTS' not in config:
+        config['FRAMECOUNTS'] = {}
+    if key in config['FRAMECOUNTS']:
+        value = config['FRAMECOUNTS'][key]
+        value = value + ',' + str(frame_count)
+        config['FRAMECOUNTS'][key] = value
+    else:
+        config['FRAMECOUNTS'][key] = str(frame_count)
+
+    with open(os.path.join(DATA_PATH, "config.ini"), 'w') as configfile:    # save
+        config.write(configfile)
     
 if __name__ == '__main__':
     main()
