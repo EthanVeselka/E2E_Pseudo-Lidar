@@ -18,20 +18,9 @@ import os
 from .stackhourglass import hourglass as stackhourglass
 
 from .logger import setup_logger
-
-# directory reach
-# from models import *
-
-# setting path
-# directory = path.path(__file__).abspath()
-# sys.path.append(directory.parent.parent)
-# from dataloader import KITTILoader3D as ls
-# from dataloader import KITTILoader_dataset3d as DA
+import torch.nn.functional as F
 
 import processing.pseudo_lidar.PLDataset as DA
-
-# from ...processing import *
-# from . import process
 
 parser = argparse.ArgumentParser(description="PSMNet")
 parser.add_argument("--maxdisp", type=int, default=192, help="maxium disparity")
@@ -130,14 +119,6 @@ optimizer = optim.Adam(model.parameters(), lr=0.1, betas=(0.9, 0.999))
 def train(imgL, imgR, disp_L):
     model.train()
 
-    # imgL = Variable(torch.FloatTensor(imgL))
-    # imgR = Variable(torch.FloatTensor(imgR))
-    # disp_L = Variable(torch.FloatTensor(disp_L))
-
-    # imgL = torch.tensor(imgL)
-    # imgR = torch.tensor(imgR)
-    # disp_L = torch.tensor(disp_L)
-
     imgL = imgL.clone().detach()
     imgR = imgR.clone().detach()
     disp_L = disp_L.clone().detach()
@@ -155,6 +136,9 @@ def train(imgL, imgR, disp_L):
 
     print("ABOUT TO CALL MODEL")
     print(imgL.shape, imgR.shape)
+    # imgL_resized = F.interpolate(imgL, size=(540, 960), mode='bilinear', align_corners=False)
+    # imgR_resized = F.interpolate(imgL, size=(540, 960), mode='bilinear', align_corners=False)
+    # output1, output2, output3 = model(imgL_resized, imgR_resized)
     output1, output2, output3 = model(imgL, imgR)
     print("CALLED MODEL")
     output1 = torch.squeeze(output1, 1)

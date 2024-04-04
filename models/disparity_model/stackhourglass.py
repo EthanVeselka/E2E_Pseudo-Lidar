@@ -60,8 +60,8 @@ class hourglass(nn.Module):
         )  # +x
 
     def forward(self, x, presqu=None, postsqu=None):
-        # print("X", x)
-        # print(x.shape)
+        print("X", x)
+        print(x.shape)
         out = self.conv1(x)  # in:1/4 out:1/8
         pre = self.conv2(out)  # in:1/8 out:1/8
         if postsqu is not None:
