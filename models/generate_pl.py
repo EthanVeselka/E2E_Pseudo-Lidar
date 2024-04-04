@@ -3,14 +3,16 @@ import os
 
 import numpy as np
 import scipy.misc as ssc
-import processing.dataLoading.calib_utils
+import processing.pseudo_lidar.calib_utils as calib_utils
+import csv
+import configparser
 
 # Generates psuedo-lidar point clouds from disparity | depth-map, used for Lidar 3-D bb pred #
 
 
 def project_disp_to_points(calib, disp, max_high):
     disp[disp < 0] = 0
-    baseline = 0.54
+    baseline = 0.50
     mask = disp > 0
     depth = calib.f_u * baseline / (disp + 1.0 - mask)
     rows, cols = depth.shape
@@ -38,53 +40,51 @@ def project_depth_to_points(calib, depth, max_high):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Libar")
     parser.add_argument(
-        "--calib_dir", type=str, default="~/Kitti/object/training/calib"
+        "--calib_dir", type=str, default="./carla_data/example_data"
     )
     parser.add_argument(
-        "--disparity_dir",
+        "--listfile_dir",
         type=str,
-        default="~/Kitti/object/training/predicted_disparity",
+        default="./carla_data/output",
     )
     parser.add_argument(
         "--save_dir", type=str, default="~/Kitti/object/training/predicted_velodyne"
     )
+
+    print(os.getcwd())
     parser.add_argument("--max_high", type=int, default=1)
     parser.add_argument("--is_depth", action="store_true")
 
     args = parser.parse_args()
 
-    assert os.path.isdir(args.disparity_dir)
+    assert os.path.isdir(args.listfile_dir)
     assert os.path.isdir(args.calib_dir)
 
-    if not os.path.isdir(args.save_dir):
-        os.makedirs(args.save_dir)
+    # if not os.path.isdir(args.save_dir):
+    #     os.makedirs(args.save_dir)
+        
+    calib_file = "{}/{}.txt".format(args.calib_dir, "calibmatrices")
+    calib = calib_utils.Calibration(calib_file)
 
-    disps = [
-        x for x in os.listdir(args.disparity_dir) if x[-3:] == "png" or x[-3:] == "npy"
-    ]
-    disps = sorted(disps)
+    for task in ["train","test","val"]:
+        #print(os.getcwd())
+        list_file = os.path.join(args.listfile_dir, task + ".csv")
+        
+        with open(list_file[2:], "r+") as frame_path_folders:
+            reader = csv.reader(frame_path_folders)
+            #next(reader, None)
 
-    for fn in disps:
-        predix = fn[:-4]
-        calib_file = "{}/{}.txt".format(args.calib_dir, predix)
-        calib = kitti_util.Calibration(calib_file)
-
-        # disp_map = ssc.imread(args.disparity_dir + '/' + fn) / 256.
-        if fn[-3:] == "png":
-            disp_map = ssc.imread(args.disparity_dir + "/" + fn)
-        elif fn[-3:] == "npy":
-            disp_map = np.load(args.disparity_dir + "/" + fn)
-        else:
-            assert False
-        if not args.is_depth:
-            disp_map = (disp_map * 256).astype(np.uint16) / 256.0
-            lidar = project_disp_to_points(calib, disp_map, args.max_high)
-        else:
-            disp_map = (disp_map).astype(np.float32) / 256.0
-            lidar = project_depth_to_points(calib, disp_map, args.max_high)
-
-        # pad 1 in the indensity dimension
-        lidar = np.concatenate([lidar, np.ones((lidar.shape[0], 1))], 1)
-        lidar = lidar.astype(np.float32)
-        lidar.tofile("{}/{}.bin".format(args.save_dir, predix))
-        print("Finish Depth {}".format(predix))
+            for row in reader:
+                disp_map = np.load(row[0] + "/" + "left_disp.npy")
+                #print(row[0])
+                if not os.path.exists(os.path.join(row[0],"output")):
+                    os.mkdir(os.path.join(row[0],"output"))
+                
+                os.chdir(os.path.join(row[0],"output"))
+                disp_map = (disp_map * 256).astype(np.uint16) / 256.0
+                lidar = project_disp_to_points(calib, disp_map, args.max_high)
+                
+                lidar = np.concatenate([lidar, np.ones((lidar.shape[0], 1))], 1)
+                lidar = lidar.astype(np.float32)
+                lidar.tofile("{}/{}.bin".format(os.path.join(row[0],"output"),"left_pl"))#(os.path.join(row[0],"output"){{}.bin".format("left_lidar")) #("{}/{}.bin".format(args.save_dir, predix))
+                os.chdir("../../../../../../..")
