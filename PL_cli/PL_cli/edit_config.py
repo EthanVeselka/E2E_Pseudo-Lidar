@@ -1,11 +1,10 @@
 import argparse
-import configparser
+from configparser import ConfigParser
 import os
-import string
 
-def edit_config(file_path: str, out_file_path: str, key: str, value: str):
-    configs = configparser.ConfigParser(comment_prefixes="#", allow_no_value=True)
-    configs.read(file_path)
+def edit_config(key: str, value: str):
+    configs = ConfigParser(comment_prefixes="#", allow_no_value=True)
+    configs.read('../processing/config.ini')
     # print(configs.sections())
     # print(configs.options("General"))
     # print(configs.options("Path"))
@@ -27,7 +26,7 @@ def edit_config(file_path: str, out_file_path: str, key: str, value: str):
     elif key == "splits":
         try:
             # Parse input string to tuple of floats
-            values = tuple(map(float, string.strip('()').split(',')))
+            values = tuple(map(float, value.strip('()').split(',')))
             # Check if tuple has three values
             if len(values) != 3:
                 raise ValueError(f"Error: Tuple {values} must have three values.")
@@ -49,15 +48,18 @@ def edit_config(file_path: str, out_file_path: str, key: str, value: str):
             value = int(value)
         except ValueError:
             raise argparse.ArgumentTypeError(f"Error: Value {value} must be an integer.")
-        if value < 1:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be greater than 0.")
+        if value < 10:
+            raise argparse.ArgumentTypeError(f"Error: Value {value} must be at least 10.")
+        # TODO: Add a check for the maximum value of sample_size
+        # TODO: Add a way to use all frames
 
-        configs["General"]["sample_size"] = value
+
+        configs["General"]["sample_size"] = str(value)
 
     # input validation for "data_path" key
     elif key == "data_path":
         if not os.path.exists(value):
-            raise argparse.ArgumentTypeError(f"Error: {value} not found.")
+            raise argparse.ArgumentTypeError(f"Error: Path to {value} not found.")
         
         configs["Path"]["data_path"] = value
 
@@ -88,7 +90,7 @@ def edit_config(file_path: str, out_file_path: str, key: str, value: str):
         if int(value) not in [1, 2, 5, 8, 9, 12]:
             raise argparse.ArgumentTypeError(f"Error: Value {value} must be 1, 2, 5, 8, 9, or 12.")
         
-        configs["External Variables"]["weather"] = int(value)
+        configs["External Variables"]["weather"] = str(value)
 
     # input validation for "map" key
     elif key == "map":
@@ -103,6 +105,7 @@ def edit_config(file_path: str, out_file_path: str, key: str, value: str):
         raise argparse.ArgumentTypeError(f"Error: Key {key} not found.")
 
     # write the new config file
+    out_file_path = "../processing/dummy_config.ini"
     with open(out_file_path, "w") as f:
         configs.write(f)
 

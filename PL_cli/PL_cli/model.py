@@ -3,5 +3,5 @@ def hello():
 
 # Functions needed:
     # modify config files for data collection
-    # modify sampling params
+    # modify sampling params -- config
     # modify model params (the big stuff)
