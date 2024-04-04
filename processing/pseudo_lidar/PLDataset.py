@@ -43,10 +43,10 @@ class PLDataset(Dataset):
         self.seed = seed
         self.task = task
         self.transform = transform
-        if transform:
-            self.transform = transform
-        else:
-            self.transform = transforms.Compose([transforms.PILToTensor()])
+        # if transform:
+        #     self.transform = transform
+        # else:
+        #     self.transform = transforms.Compose([transforms.PILToTensor()])
 
         self.dploader = dploader
         self.rgbloader = rgbloader
@@ -70,7 +70,7 @@ class PLDataset(Dataset):
 
         if self.task == "train":
             left_img, right_img, left_depth = self._rand_crop(
-                left_img, right_img, left_depth, 1080, 1920
+                left_img, right_img, left_depth, 256, 512
             )  # parameters will need to be adjusted
         else:
             w, h = left_img.size
@@ -91,7 +91,12 @@ class PLDataset(Dataset):
         if self.transform:
             left_img = self.transform(left_img)
             right_img = self.transform(right_img)
-
+            
+        processed = trf.get_transform(augment=False)  
+        left_img = processed(left_img)
+        right_img = processed(right_img)
+        
+        
         return left_img, right_img, left_depth
 
     def __len__(self):
