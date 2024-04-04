@@ -15,8 +15,8 @@ import torch.utils.data
 # from torch.autograd import Variable
 
 import logger
-import processing.dataLoading.custom_loader as ls
-import processing.dataLoading.custom_dataset as DA
+import processing.pseudo_lidar.custom_loader as ls
+import processing.pseudo_lidar.custom_dataset as DA
 
 # from processing.dataLoader import KITTILoader3D as ls
 # from processing.dataLoader import KITTILoader_dataset3d as DA

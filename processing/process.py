@@ -5,8 +5,8 @@ import numpy as np
 
 from . import sample
 from . import utils
-from .dataLoading import PLDataset as pld
-from .dataLoading import generate_disp as gd
+from .pseudo_lidar import PLDataset as pld
+from .pseudo_lidar import generate_disp as gd
 from torch.utils.data import DataLoader
 
 # If you want to run this by itself, run from main directory and use:
@@ -41,8 +41,8 @@ def process(root, config, gen_disp=False):
 
     # test loop
     for batch in pldl:
-       # for row in batch[2][0]:
-            #print(row)
+        # for row in batch[2][0]:
+        # print(row)
         for images in batch:
             print(images.shape)
 
