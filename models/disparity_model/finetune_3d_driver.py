@@ -23,7 +23,7 @@ import torch.nn.functional as F
 import processing.pseudo_lidar.PLDataset as DA
 
 parser = argparse.ArgumentParser(description="PSMNet")
-parser.add_argument("--maxdisp", type=int, default=192, help="maxium disparity")
+parser.add_argument("--maxdisp", type=int, default=1, help="maxium disparity")
 parser.add_argument("--model", default="stackhourglass", help="select model")
 # parser.add_argument('--datatype', default='2015',
 #                     help='datapath')
