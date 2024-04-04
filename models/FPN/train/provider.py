@@ -136,7 +136,7 @@ class FrustumDataset(object):
         self.one_hot = one_hot
         if overwritten_data_path is None:
             overwritten_data_path = os.path.join(
-                ROOT_DIR, "kitti/frustum_carpedcyc_%s.pickle" % (split)
+                "../../../carla_data/output", "frustum_carpedcyc_%s.pickle" % (split)
             )
 
         self.from_rgb_detection = from_rgb_detection
