@@ -25,6 +25,7 @@ class PLDataset(Dataset):
     def __init__(
         self,
         root,
+        split_file,
         num_workers,
         seed,
         task,
@@ -36,10 +37,17 @@ class PLDataset(Dataset):
         #     root, n_samples, num_workers, seed, task == "train"
         # )
         # self.n_samples = n_samples
+        self.root = root
         self.num_workers = num_workers
+        self.split_file = split_file
         self.seed = seed
         self.task = task
         self.transform = transform
+        if transform:
+            self.transform = transform
+        else:
+            self.transform = transforms.Compose([transforms.PILToTensor()])
+
         self.dploader = dploader
         self.rgbloader = rgbloader
 
@@ -47,7 +55,7 @@ class PLDataset(Dataset):
         self.right_image_paths = []
         self.left_depths = []
 
-        self._read_data(root)
+        self._read_data()
         self.n_samples = len(self.left_image_paths)
         # self._load_data(n_samples)
         # self._normalizer = Normalizer()
@@ -60,24 +68,23 @@ class PLDataset(Dataset):
         right_img = self.rgbloader(self.right_image_paths[idx])
         left_depth = self.dploader(self.left_depths[idx])
 
-
         if self.task == "train":
             left_img, right_img, left_depth = self._rand_crop(
                 left_img, right_img, left_depth, 1080, 1920
-            )  # parameters will need to be adjusted 
+            )  # parameters will need to be adjusted
         else:
             w, h = left_img.size
             left_img = left_img.crop((w - 1200, h - 352, w, h))
             right_img = right_img.crop((w - 1200, h - 352, w, h))
-            #left_depth = left_depth.crop((w - 1200, h - 352, w, h)) #for png
-            left_depth = left_depth[h - 352 : h, w - 1200 : w]  #for numpy
+            # left_depth = left_depth.crop((w - 1200, h - 352, w, h)) #for png
+            left_depth = left_depth[h - 352 : h, w - 1200 : w]  # for numpy
 
         # Transform to tensor
-        transform = transforms.ToTensor()
+        # transform = transforms.ToTensor()
 
-        left_img = transform(left_img)
-        right_img = transform(right_img)
-        #left_depth = transform(left_depth)
+        # left_img = transform(left_img)
+        # right_img = transform(right_img)
+        # left_depth = transform(left_depth)
         left_depth = torch.from_numpy(left_depth).float()
 
         # Additional transforms if necessary
@@ -90,7 +97,7 @@ class PLDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-    def _read_data(self, root):
+    def _read_data(self):
         # read data in chunks
         """
         read in chunks and index accordingly?
@@ -98,7 +105,9 @@ class PLDataset(Dataset):
         """
         # left and right as x data --> convert to 2 3D tensors
         # depth_map ground truths as y data --> 2D tensors
-        list_file = os.path.join(root, self.task + ".csv")
+
+        # self.split_file = os.path.join(self.root, self.split_file)
+        list_file = os.path.join(self.split_file + "/output", self.task + ".csv")
 
         self.left_image_paths = []
         self.right_image_paths = []
@@ -107,11 +116,12 @@ class PLDataset(Dataset):
         with open(list_file, "r+") as frame_path_folders:
             reader = csv.reader(frame_path_folders)
             next(reader, None)
-
             for row in reader:
-                self.left_image_paths.append(row[0] + "/left_rgb.png")
-                self.right_image_paths.append(row[0] + "/right_rgb.png")
-                self.left_depths.append(row[0] + "/left_disp.npy") #left_depth.png
+                self.left_image_paths.append(self.root + row[0] + "/left_rgb.png")
+                self.right_image_paths.append(self.root + row[0] + "/right_rgb.png")
+                self.left_depths.append(
+                    self.root + row[0] + "/left_disp.npy"
+                )  # left_depth.png
 
     def _load_data(self, n_samples):
         # normalize data

@@ -40,14 +40,13 @@ def process(root, config, gen_disp=False):
     pldl = DataLoader(pldataset, batch_size=64, shuffle=True)
 
     # test loop
-    for batch in pldl:
+    # for batch in pldl:
         # for row in batch[2][0]:
         # print(row)
-        for images in batch:
-            print(images.shape)
+        # for images in batch:
+        #     print(images.shape)
 
     return pldl
-
 
 if __name__ == "__main__":
     process("NA", "config.ini", True)

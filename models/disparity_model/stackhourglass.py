@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from submodule import *
+from .submodule import *
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -14,6 +14,7 @@ class hourglass(nn.Module):
         super(hourglass, self).__init__()
 
         self.conv1 = nn.Sequential(
+            # convbn_3d(inplanes, inplanes * 2, kernel_size=3, stride=2, pad=1),
             convbn_3d(inplanes, inplanes * 2, kernel_size=3, stride=2, pad=1),
             nn.ReLU(inplace=True),
         )
@@ -58,8 +59,9 @@ class hourglass(nn.Module):
             nn.BatchNorm3d(inplanes),
         )  # +x
 
-    def forward(self, x, presqu, postsqu):
-
+    def forward(self, x, presqu=None, postsqu=None):
+        # print("X", x)
+        # print(x.shape)
         out = self.conv1(x)  # in:1/4 out:1/8
         pre = self.conv2(out)  # in:1/8 out:1/8
         if postsqu is not None:
@@ -146,7 +148,6 @@ class PSMNet(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, left, right):
-
         refimg_fea = self.feature_extraction(left)
         targetimg_fea = self.feature_extraction(right)
 
