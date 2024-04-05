@@ -1,12 +1,13 @@
 import random
 import os
+import sys
 import torch
 import numpy as np
 
-from . import sample
-from . import utils
-from .pseudo_lidar import PLDataset as pld
-from .pseudo_lidar import generate_disp as gd
+sys.path.append("..")
+from processing import sample, utils
+from processing.pseudo_lidar import PLDataset as pld
+from processing.pseudo_lidar import generate_disp as gd
 from torch.utils.data import DataLoader
 
 # If you want to run this by itself, run from main directory and use:

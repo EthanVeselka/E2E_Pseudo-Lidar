@@ -1,11 +1,13 @@
 import argparse
 import os
+import sys
 
 import numpy as np
 from PIL import Image
 
 # import calib_utils
-from . import calib_utils
+sys.path.append("../..")
+import processing.pseudo_lidar.calib_utils as calib_utils
 
 
 # Generates ground truth disparities for training from LiDAR ground truths #

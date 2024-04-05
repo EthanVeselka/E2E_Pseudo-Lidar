@@ -1,8 +1,11 @@
 import argparse
 import os
-
+import sys
 import numpy as np
 import scipy.misc as ssc
+
+
+sys.path.append("../..")
 import processing.pseudo_lidar.calib_utils as calib_utils
 import csv
 import configparser
