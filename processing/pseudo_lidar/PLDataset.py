@@ -53,7 +53,7 @@ class PLDataset(Dataset):
 
         self.left_image_paths = []
         self.right_image_paths = []
-        self.left_depths = []
+        self.left_disps = []
 
         self._read_data()
         self.n_samples = len(self.left_image_paths)
@@ -66,26 +66,26 @@ class PLDataset(Dataset):
         # Get image data
         left_img = self.rgbloader(self.left_image_paths[idx])
         right_img = self.rgbloader(self.right_image_paths[idx])
-        left_depth = self.dploader(self.left_depths[idx])
+        left_disp = self.dploader(self.left_disps[idx])
 
         if self.task == "train":
-            left_img, right_img, left_depth = self._rand_crop(
-                left_img, right_img, left_depth, 256, 512
+            left_img, right_img, left_disp = self._rand_crop(
+                left_img, right_img, left_disp, 256, 512
             )  # parameters will need to be adjusted
         else:
             w, h = left_img.size
             left_img = left_img.crop((w - 1200, h - 352, w, h))
             right_img = right_img.crop((w - 1200, h - 352, w, h))
-            # left_depth = left_depth.crop((w - 1200, h - 352, w, h)) #for png
-            left_depth = left_depth[h - 352 : h, w - 1200 : w]  # for numpy
+            # left_disp = left_disp.crop((w - 1200, h - 352, w, h)) #for png
+            left_disp = left_disp[h - 352 : h, w - 1200 : w]  # for numpy
 
         # Transform to tensor
         # transform = transforms.ToTensor()
 
         # left_img = transform(left_img)
         # right_img = transform(right_img)
-        # left_depth = transform(left_depth)
-        left_depth = torch.from_numpy(left_depth).float()
+        # left_disp = transform(left_disp)
+        left_disp = torch.from_numpy(left_disp).float()
 
         # Additional transforms if necessary
         if self.transform:
@@ -97,7 +97,7 @@ class PLDataset(Dataset):
         right_img = processed(right_img)
         
         
-        return left_img, right_img, left_depth
+        return left_img, right_img, left_disp
 
     def __len__(self):
         return self.n_samples
@@ -112,21 +112,21 @@ class PLDataset(Dataset):
         # depth_map ground truths as y data --> 2D tensors
 
         # self.split_file = os.path.join(self.root, self.split_file)
-        list_file = os.path.join(self.split_file + "/output", self.task + ".csv")
+        list_file = os.path.join(self.split_file, self.task + ".csv")
 
         self.left_image_paths = []
         self.right_image_paths = []
-        self.left_depths = []
+        self.left_disps = []
 
         with open(list_file, "r+") as frame_path_folders:
             reader = csv.reader(frame_path_folders)
             next(reader, None)
             for row in reader:
-                self.left_image_paths.append(self.root + row[0] + "/left_rgb.png")
-                self.right_image_paths.append(self.root + row[0] + "/right_rgb.png")
-                self.left_depths.append(
-                    self.root + row[0] + "/left_disp.npy"
-                )  # left_depth.png
+                self.left_image_paths.append(self.root + "/" +row[0] + "/left_rgb.png")
+                self.right_image_paths.append(self.root + "/"+row[0] + "/right_rgb.png")
+                self.left_disps.append(
+                    self.root+ "/" + row[0] + "/left_disp.npy"
+                )  # left_disp.png
 
     def _load_data(self, n_samples):
         # normalize data

@@ -51,7 +51,7 @@ parser.add_argument(
 # parser.add_argument("--split_file", default="Kitti/object/train.txt", help="save model")
 parser.add_argument(
     "--split_file",
-    default="carla_data/",
+    default="carla_data/output",
     help="training data sampling indices",
 )
 parser.add_argument("--btrain", type=int, default=1, help="size of batch")

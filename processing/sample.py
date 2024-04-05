@@ -84,6 +84,7 @@ def sample(root, config="config.ini", save_file_path="./output"):
                 
                 os.chdir(timestamp)
                 curr_dir = DATA_PATH + "/" + episode + "/" + iteration + "/" + timestamp
+                list_dir =  episode + "/" + iteration + "/" + timestamp
                 
                 it_conf = configparser.ConfigParser()
                 it_conf.read(config)
@@ -111,19 +112,21 @@ def sample(root, config="config.ini", save_file_path="./output"):
 
     file = open(save_file_path + "/train.csv", "w")
     for idx in train:
-        file.write(curr_dir + "/" + frames[idx] + "\n")
+        file.write(list_dir + "/" + frames[idx] + "\n")
     file.close()
 
     if len(val) != 0:
         file = open(save_file_path + "/val.csv", "w")
         for idx in val:
-            file.write(frames[idx] + "\n")
+            file.write(list_dir + "/" + frames[idx] + "\n")
         file.close()
 
     file = open(save_file_path + "/test.csv", "w")
     for idx in test:
-        file.write(frames[idx] + "\n")
+        file.write(list_dir + "/" + frames[idx] + "\n")
     file.close()
+    
+    os.chdir("../../../../..")
 
     return save_file_path
 
