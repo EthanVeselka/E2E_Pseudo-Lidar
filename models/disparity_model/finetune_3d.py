@@ -71,24 +71,6 @@ split_file = os.path.join(BASE_DIR, args.split_file)
     all_right_img,
     all_left_disp,
 ) = ls.dataloader(datapath, split_file)
-# pldataset = (
-#     root=datapath,
-#     split_file=split_file,
-#     num_workers=0,
-#     seed=args.seed,
-#     task="train",
-# )  # num_samples
-
-# TrainImgLoader = ls(
-#     # DA.PLDataset(all_left_img, all_right_img, all_left_disp, True),
-#     # find root path of dataset
-#     # DA.PLDataset(root=args.split_file, num_workers=1, seed=args.seed, task="train"),
-#     pldataset,
-#     batch_size=args.btrain,
-#     shuffle=True,
-#     num_workers=14,
-#     drop_last=False,
-# )
 
 TrainImgLoader = torch.utils.data.DataLoader(
     DA.myImageFloder(all_left_img, all_right_img, all_left_disp, True),
