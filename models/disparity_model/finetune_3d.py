@@ -25,10 +25,9 @@ import processing.pseudo_lidar.custom_dataset as DA
 
 parser = argparse.ArgumentParser(description="PSMNet")
 parser.add_argument("--maxdisp", type=int, default=192, help="maximum disparity")
-parser.add_argument("--model", default="stackhourglass", help="select model")
 parser.add_argument("--epochs", type=int, default=1, help="number of epochs to train")
 parser.add_argument("--loadmodel", default=None, help="load model")
-parser.add_argument("--savemodel", default="./", help="save model")
+parser.add_argument("--savemodel", default="../saved_models", help="save model")
 parser.add_argument("--btrain", type=int, default=1, help="size of batch")
 parser.add_argument("--start_epoch", type=int, default=1)
 parser.add_argument(
@@ -70,20 +69,20 @@ split_file = os.path.join(BASE_DIR, args.split_file)
     all_left_img,
     all_right_img,
     all_left_disp,
-) = ls.dataloader(datapath, split_file)
+) = ls.dataloader(datapath, split_file, "train")
 
 TrainImgLoader = torch.utils.data.DataLoader(
     DA.myImageFloder(all_left_img, all_right_img, all_left_disp, True),
     batch_size=args.btrain,
     shuffle=True,
-    num_workers=0,
+    num_workers=4,
     drop_last=False,
 )
 
 model = stackhourglass(args.maxdisp)
 
 if args.cuda:
-    # model = nn.DataParallel(model)
+    model = nn.DataParallel(model)
     model.cuda()
 
 if args.loadmodel is not None:
@@ -159,7 +158,7 @@ def test(imgL, imgR, disp_true):
     )
     torch.cuda.empty_cache()
 
-    return 1 - (float(torch.sum(correct)) / float(len(index[0])))
+    return float(torch.sum(correct)) / float(len(index[0]))
 
 
 def adjust_learning_rate(optimizer, epoch):
@@ -191,14 +190,16 @@ def main():
                 % (batch_idx, loss, time.time() - start_time)
             )
             total_train_loss += loss
+            acc = test(imgL_crop, imgR_crop, disp_crop_L)
+            print("Accuracy: ", acc)
         print(
             "epoch %d total training loss = %.3f"
             % (epoch, total_train_loss / len(TrainImgLoader))
         )
 
         # SAVE
-        if not os.path.isdir(args.savemodel):
-            os.makedirs(args.savemodel)
+        if not os.path.isdir("../" + args.savemodel):
+            os.makedirs("../" + args.savemodel)
         savefilename = args.savemodel + "/finetune_" + str(epoch) + ".tar"
         torch.save(
             {

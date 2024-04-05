@@ -69,7 +69,6 @@ def generate_disparity(filepath):
                     if frame == "config.ini":
                         continue
                     os.chdir(frame)
-                    # print(curr_dir +"/"+ frame)
                     lidar = open("left_lidar.ply", "r+")
                     lines = lidar.readlines()
                     lines = lines[10:]
@@ -93,10 +92,6 @@ def generate_disparity(filepath):
                     if not os.path.exists("output"):
                         os.mkdir("output")
                     np.save("output/left_disp.npy", disp)
-                    # print(width, height)
-                    # im = Image.fromarray(disp)
-                    # im = im.convert('RGB')
-                    # im.save("left_disp_im.png")
-                    # print(point_cloud.shape)
+
                     os.chdir("..")
     os.chdir("../../../../..")
