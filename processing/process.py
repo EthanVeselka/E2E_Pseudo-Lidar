@@ -29,25 +29,17 @@ def process(root, config, gen_disp=False):
     if gen_disp:
         gd.generate_disparity("carla_data/example_data")
 
-    save_file_path = sample.sample(
-        root, config, save_file_path
-    )  # return file path with train/val/test listfiles
-
-    #print(os.getcwd())
+    sample.sample(root, config, save_file_path)
     pldataset = pld.PLDataset(
-        "carla_data/example_data", "carla_data/output", num_workers=4, seed=0, task="train"
-    )  # num_samples
-
+        "carla_data/example_data",
+        "carla_data/output",
+        num_workers=4,
+        seed=0,
+        task="train",
+    )
     pldl = DataLoader(pldataset, batch_size=64, shuffle=True)
-
-    #test loop
-    # for batch in pldl:
-    #     for row in batch[2][0]:
-    #         #print(row)
-    #         for images in batch:
-    #            # print(images.shape)
-
     return pldl
+
 
 if __name__ == "__main__":
     process("NA", "config.ini", True)

@@ -91,12 +91,11 @@ class PLDataset(Dataset):
         if self.transform:
             left_img = self.transform(left_img)
             right_img = self.transform(right_img)
-            
-        processed = trf.get_transform(augment=False)  
+
+        processed = trf.get_transform(augment=False)
         left_img = processed(left_img)
         right_img = processed(right_img)
-        
-        
+
         return left_img, right_img, left_disp
 
     def __len__(self):
@@ -122,10 +121,12 @@ class PLDataset(Dataset):
             reader = csv.reader(frame_path_folders)
             next(reader, None)
             for row in reader:
-                self.left_image_paths.append(self.root + "/" +row[0] + "/left_rgb.png")
-                self.right_image_paths.append(self.root + "/"+row[0] + "/right_rgb.png")
+                self.left_image_paths.append(self.root + "/" + row[0] + "/left_rgb.png")
+                self.right_image_paths.append(
+                    self.root + "/" + row[0] + "/right_rgb.png"
+                )
                 self.left_disps.append(
-                    self.root+ "/" + row[0] + "/left_disp.npy"
+                    self.root + "/" + row[0] + "/output/left_disp.npy"
                 )  # left_disp.png
 
     def _load_data(self, n_samples):

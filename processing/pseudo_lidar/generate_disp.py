@@ -11,7 +11,7 @@ from . import calib_utils
 # Generates ground truth disparities for training from LiDAR ground truths #
 
 
-def generate_dispariy_from_velo(pc_velo, height, width, calib):
+def generate_disparity_from_velo(pc_velo, height, width, calib):
     pts_2d = calib.project_velo_to_image(pc_velo)
     fov_inds = (
         (pts_2d[:, 0] < width - 1)
@@ -85,10 +85,12 @@ def generate_disparity(filepath):
                     point_cloud = np.array(points)
                     img = Image.open("left_rgb.png")
                     width, height = img.size
-                    disp = generate_dispariy_from_velo(
+                    disp = generate_disparity_from_velo(
                         point_cloud, height, width, calib
                     )
-                    np.save("left_disp.npy", disp)
+                    if not os.path.exists("output"):
+                        os.mkdir("output")
+                    np.save("output/left_disp.npy", disp)
                     # print(width, height)
                     # im = Image.fromarray(disp)
                     # im = im.convert('RGB')
@@ -96,6 +98,3 @@ def generate_disparity(filepath):
                     # print(point_cloud.shape)
                     os.chdir("..")
     os.chdir("../../../../..")
-
-
-# generate_disparity("carla_data/example_data")
