@@ -118,8 +118,10 @@ def main():
 
         w = 1248
         h = 384
-        imgL = np.array(imgL_o.crop((w - 1200, h - 352, w, h))).astype("float32")
-        imgR = np.array(imgR_o.crop((w - 1200, h - 352, w, h))).astype("float32")
+        imgL = np.array(imgL_o.crop((0, 0, w, h))).astype("float32")
+        imgR = np.array(imgR_o.crop((0, 0, w, h))).astype("float32")
+        # imgL = np.array(imgL).astype("float32")
+        # imgR = np.array(imgR).astype("float32")
         imgL = processed(imgL).numpy()
         imgR = processed(imgR).numpy()
         imgL = np.reshape(imgL, [1, 3, imgL.shape[1], imgL.shape[2]])
@@ -145,9 +147,10 @@ def main():
         pred_disp = test(imgL, imgR)
         print("time = %.2f" % (time.time() - start_time))
 
-        top_pad = 384 - 352
-        left_pad = 1248 - 1200
-        img = pred_disp[top_pad:, :-left_pad]
+        # top_pad = 384 - 352
+        # left_pad = 1248 - 1200
+        # img = pred_disp[top_pad:, :-left_pad]
+        img = pred_disp
         print(test_left_img[idx].split("/")[-1])
         frame = test_left_img[idx].split("/")[-2]
         if args.save_figure:
