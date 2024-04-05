@@ -2,7 +2,8 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.utils.data
-from torch.autograd import Variable
+
+# from torch.autograd import Variable
 import torch.nn.functional as F
 import math
 import numpy as np
@@ -74,18 +75,14 @@ class matchshifted(nn.Module):
         batch, filters, height, width = left.size()
         shifted_left = F.pad(
             torch.index_select(
-                left,
-                3,
-                Variable(torch.LongTensor([i for i in range(shift, width)])).cuda(),
-            ),
+                left, 3, torch.LongTensor([i for i in range(shift, width)])
+            ).cuda(),
             (shift, 0, 0, 0),
         )
         shifted_right = F.pad(
             torch.index_select(
-                right,
-                3,
-                Variable(torch.LongTensor([i for i in range(width - shift)])).cuda(),
-            ),
+                right, 3, torch.LongTensor([i for i in range(width - shift)])
+            ).cuda(),
             (shift, 0, 0, 0),
         )
         out = torch.cat((shifted_left, shifted_right), 1).view(
@@ -97,12 +94,9 @@ class matchshifted(nn.Module):
 class disparityregression(nn.Module):
     def __init__(self, maxdisp):
         super(disparityregression, self).__init__()
-        self.disp = Variable(
-            torch.Tensor(
-                np.reshape(np.array(range(maxdisp)), [1, maxdisp, 1, 1])
-            ).cuda(),
-            requires_grad=False,
-        )
+        self.disp = torch.Tensor(
+            np.reshape(np.array(range(maxdisp)), [1, maxdisp, 1, 1])
+        ).cuda()
 
     def forward(self, x):
         disp = self.disp.repeat(x.size()[0], 1, x.size()[2], x.size()[3])

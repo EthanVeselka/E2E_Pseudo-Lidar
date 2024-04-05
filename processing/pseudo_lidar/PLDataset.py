@@ -1,14 +1,18 @@
 import csv
 import os
 import torch
+import sys
 import torchvision.transforms as transforms
 import random
-from . import transforms as trf
-from . import readpfm as rp
 import numpy as np
 
 from PIL import Image, ImageOps
 from torch.utils.data import Dataset
+
+sys.path.append("../..")
+
+import processing.pseudo_lidar.transforms as trf
+import processing.pseudo_lidar.readpfm as rpm
 
 
 def RGB_loader(path):

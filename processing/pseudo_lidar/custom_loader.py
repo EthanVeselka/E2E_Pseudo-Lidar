@@ -1,3 +1,6 @@
+import os
+import csv
+
 IMG_EXTENSIONS = [
     ".jpg",
     ".JPG",
@@ -16,16 +19,22 @@ def is_image_file(filename):
     return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)
 
 
-def dataloader(filepath, train_file):
-    left_fold = "image_2/"
-    right_fold = "image_3/"
-    disp_L = "disparity/"
+def dataloader(datapath, split_file):
 
-    with open(train_file, "r") as f:
-        train_idx = [x.strip() for x in f.readlines()]
+    list_file = os.path.join(split_file, "train.csv")
 
-    left_train = [filepath + "/" + left_fold + img + ".png" for img in train_idx]
-    right_train = [filepath + "/" + right_fold + img + ".png" for img in train_idx]
-    disp_train_L = [filepath + "/" + disp_L + img + ".npy" for img in train_idx]
+    left_image_paths = []
+    right_image_paths = []
+    left_disps = []
 
-    return left_train, right_train, disp_train_L
+    with open(list_file, "r+") as frame_path_folders:
+        reader = csv.reader(frame_path_folders)
+        next(reader, None)
+        for row in reader:
+            left_image_paths.append(datapath + "/" + row[0] + "/left_rgb.png")
+            right_image_paths.append(datapath + "/" + row[0] + "/right_rgb.png")
+            left_disps.append(
+                datapath + "/" + row[0] + "/output/left_disp.npy"
+            )  # left_disp.png
+
+    return left_image_paths, right_image_paths, left_disps

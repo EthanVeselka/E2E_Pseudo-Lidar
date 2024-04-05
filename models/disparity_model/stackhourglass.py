@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from .submodule import *
+from submodule import *
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -14,7 +14,6 @@ class hourglass(nn.Module):
         super(hourglass, self).__init__()
 
         self.conv1 = nn.Sequential(
-            # convbn_3d(inplanes, inplanes * 2, kernel_size=3, stride=2, pad=1),
             convbn_3d(inplanes, inplanes * 2, kernel_size=3, stride=2, pad=1),
             nn.ReLU(inplace=True),
         )
@@ -59,15 +58,10 @@ class hourglass(nn.Module):
             nn.BatchNorm3d(inplanes),
         )  # +x
 
-    def forward(self, x, presqu=None, postsqu=None):
-        print("X", x)
-        print(x.shape)
-        print(x.dtype)
-        x = x.byte()
-        print(x.dtype)
+    def forward(self, x, presqu, postsqu):
         out = self.conv1(x)  # in:1/4 out:1/8
         pre = self.conv2(out)  # in:1/8 out:1/8
-        
+
         if postsqu is not None:
             pre = F.relu(pre + postsqu, inplace=True)
         else:
@@ -156,17 +150,20 @@ class PSMNet(nn.Module):
         targetimg_fea = self.feature_extraction(right)
 
         # matching
-        cost = Variable(
+        # print("refimg_fea", refimg_fea.size())
+        cost = (
             torch.FloatTensor(
                 refimg_fea.size()[0],
                 refimg_fea.size()[1] * 2,
-                self.maxdisp / 4,
+                int(self.maxdisp / 4),
                 refimg_fea.size()[2],
                 refimg_fea.size()[3],
-            ).zero_()
-        ).cuda()
+            )
+            .zero_()
+            .cuda()
+        )
 
-        for i in range(self.maxdisp / 4):
+        for i in range(int(self.maxdisp / 4)):
             if i > 0:
                 cost[:, : refimg_fea.size()[1], i, :, i:] = refimg_fea[:, :, :, i:]
                 cost[:, refimg_fea.size()[1] :, i, :, i:] = targetimg_fea[:, :, :, :-i]

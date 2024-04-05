@@ -3,6 +3,7 @@ from __future__ import print_function
 import argparse
 import os
 import time
+import sys
 
 import numpy as np
 import torch
@@ -11,30 +12,27 @@ import torch.nn.functional as F
 import torch.nn.parallel
 import torch.optim as optim
 import torch.utils.data
-from torch.autograd import Variable
-import sys
-import os
-
-from .stackhourglass import hourglass as stackhourglass
-
-from .logger import setup_logger
 import torch.nn.functional as F
 
-import processing.pseudo_lidar.PLDataset as pld
+BASE_DIR = "../../.."
+sys.path.append(BASE_DIR)
+
+from models.disparity_model.stackhourglass import PSMNet as stackhourglass
+from logger import setup_logger
+import processing.pseudo_lidar.custom_loader as ls
+import processing.pseudo_lidar.custom_dataset as DA
 
 
 parser = argparse.ArgumentParser(description="PSMNet")
-parser.add_argument("--maxdisp", type=int, default=1, help="maxium disparity")
+parser.add_argument("--maxdisp", type=int, default=192, help="maximum disparity")
 parser.add_argument("--model", default="stackhourglass", help="select model")
 parser.add_argument("--epochs", type=int, default=1, help="number of epochs to train")
 parser.add_argument("--loadmodel", default=None, help="load model")
 parser.add_argument("--savemodel", default="./", help="save model")
 parser.add_argument("--btrain", type=int, default=1, help="size of batch")
 parser.add_argument("--start_epoch", type=int, default=1)
-# parser.add_argument('--datatype', default='2015',
-#                     help='datapath')
 parser.add_argument(
-    "cuda", action="store_true", default=False, help="Enables CUDA training"
+    "--cuda", action="store_true", default=False, help="Enables CUDA training"
 )
 parser.add_argument(
     "--seed", type=int, default=1, metavar="S", help="random seed (default: 1)"
@@ -56,7 +54,6 @@ parser.add_argument(
 args = parser.parse_args()
 args.cuda = args.cuda and torch.cuda.is_available()
 torch.manual_seed(args.seed)
-
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
@@ -66,36 +63,45 @@ print(os.path.join(args.savemodel, "training.log"))
 log = setup_logger(os.path.join(args.savemodel, "training.log"))
 
 # add left, right, disp manually from data loader
-# (
-#     all_left_img,
-#     all_right_img,
-#     all_left_disp,
-# ) = ls.dataloader(args.datapath, args.split_file)
 
+datapath = os.path.join(BASE_DIR, args.datapath)
+split_file = os.path.join(BASE_DIR, args.split_file)
+(
+    all_left_img,
+    all_right_img,
+    all_left_disp,
+) = ls.dataloader(datapath, split_file)
+# pldataset = (
+#     root=datapath,
+#     split_file=split_file,
+#     num_workers=0,
+#     seed=args.seed,
+#     task="train",
+# )  # num_samples
 
-pldataset = pld.PLDataset(
-    root=args.datapath,
-    split_file=args.split_file,
-    num_workers=0,
-    seed=args.seed,
-    task="train",
-)  # num_samples
+# TrainImgLoader = ls(
+#     # DA.PLDataset(all_left_img, all_right_img, all_left_disp, True),
+#     # find root path of dataset
+#     # DA.PLDataset(root=args.split_file, num_workers=1, seed=args.seed, task="train"),
+#     pldataset,
+#     batch_size=args.btrain,
+#     shuffle=True,
+#     num_workers=14,
+#     drop_last=False,
+# )
 
 TrainImgLoader = torch.utils.data.DataLoader(
-    # DA.PLDataset(all_left_img, all_right_img, all_left_disp, True),
-    # find root path of dataset
-    # DA.PLDataset(root=args.split_file, num_workers=1, seed=args.seed, task="train"),
-    pldataset,
+    DA.myImageFloder(all_left_img, all_right_img, all_left_disp, True),
     batch_size=args.btrain,
     shuffle=True,
-    num_workers=14,
+    num_workers=0,
     drop_last=False,
 )
 
 model = stackhourglass(args.maxdisp)
 
 if args.cuda:
-    model = nn.DataParallel(model)
+    # model = nn.DataParallel(model)
     model.cuda()
 
 if args.loadmodel is not None:
@@ -114,9 +120,9 @@ optimizer = optim.Adam(model.parameters(), lr=0.1, betas=(0.9, 0.999))
 
 def train(imgL, imgR, disp_L):
     model.train()
-    imgL = imgL.clone().detach()
-    imgR = imgR.clone().detach()
-    disp_L = disp_L.clone().detach()
+    imgL = torch.FloatTensor(imgL)
+    imgR = torch.FloatTensor(imgR)
+    disp_L = torch.FloatTensor(disp_L)
 
     if args.cuda:
         imgL, imgR, disp_true = imgL.cuda(), imgR.cuda(), disp_L.cuda()
@@ -128,14 +134,7 @@ def train(imgL, imgR, disp_L):
     # ----
 
     optimizer.zero_grad()
-
-    print("ABOUT TO CALL MODEL")
-    print(imgL.shape, imgR.shape)
-    # imgL_resized = F.interpolate(imgL, size=(540, 960), mode='bilinear', align_corners=False)
-    # imgR_resized = F.interpolate(imgL, size=(540, 960), mode='bilinear', align_corners=False)
-    # output1, output2, output3 = model(imgL_resized, imgR_resized)
     output1, output2, output3 = model(imgL, imgR)
-    print("CALLED MODEL")
 
     output1 = torch.squeeze(output1, 1)
     output2 = torch.squeeze(output2, 1)
@@ -148,13 +147,14 @@ def train(imgL, imgR, disp_L):
     loss.backward()
     optimizer.step()
 
-    return loss.data[0]
+    print(loss.item())
+    return loss.item()
 
 
 def test(imgL, imgR, disp_true):
     model.eval()
-    imgL = Variable(torch.FloatTensor(imgL))
-    imgR = Variable(torch.FloatTensor(imgR))
+    imgL = torch.FloatTensor(imgL)
+    imgR = torch.FloatTensor(imgR)
 
     if args.cuda:
         imgL, imgR = imgL.cuda(), imgR.cuda()

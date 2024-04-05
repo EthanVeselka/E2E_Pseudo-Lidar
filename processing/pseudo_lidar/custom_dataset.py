@@ -1,13 +1,16 @@
 import csv
 import os
+import sys
 import torch
 import torchvision.transforms as transforms
 import random
-import transforms as trf
-import readpfm as rp
 import numpy as np
 
 from PIL import Image, ImageOps
+
+sys.path.append("../..")
+
+import processing.pseudo_lidar.transforms as trf
 from torch.utils.data import Dataset
 
 IMG_EXTENSIONS = [
