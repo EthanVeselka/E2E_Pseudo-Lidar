@@ -45,9 +45,9 @@ class FPNDataset(object):
         img_filename = os.path.join(self.data[idx], "left_rgb.png")
         return utils.load_image(img_filename)
 
-    def get_lidar(self, idx):  #######################
+    def get_lidar(self, idx):
         assert idx < self.num_samples
-        lidar_filename = os.path.join(self.data[idx], "pseudo_lidar.bin")
+        lidar_filename = os.path.join(self.data[idx], "output/pseudo_lidar.bin")
         return utils.load_velo_scan(lidar_filename)
 
     def get_calibration(self, idx):
@@ -59,7 +59,7 @@ class FPNDataset(object):
 
     def get_label_objects(self, idx):  #######################
         assert idx < self.num_samples and self.split == "training"
-        label_filename = os.path.join(self.data[idx], "%06d.txt" % (idx))
+        label_filename = os.path.join(self.data[idx], "labels.txt")
         return utils.read_label(label_filename)
 
     def get_depth_map(self, idx):

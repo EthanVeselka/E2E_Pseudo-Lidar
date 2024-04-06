@@ -6,6 +6,7 @@ import scipy.misc as ssc
 
 
 sys.path.append("../..")
+BASE_DIR = "../.."
 import processing.pseudo_lidar.calib_utils as calib_utils
 import csv
 import configparser
@@ -42,19 +43,20 @@ def project_depth_to_points(calib, depth, max_high):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Libar")
+    parser.add_argument("--root_dir", type=str, default="carla_data/example_data")
+    parser.add_argument("--max_high", type=int, default=1)
+    parser.add_argument("--is_depth", action="store_true")
     parser.add_argument("--calib_dir", type=str, default="carla_data/example_data")
     parser.add_argument(
         "--listfile_dir",
         type=str,
         default="carla_data/output",
     )
-    parser.add_argument("--root_dir", type=str, default="carla_data/example_data")
-
-    print(os.getcwd())
-    parser.add_argument("--max_high", type=int, default=1)
-    parser.add_argument("--is_depth", action="store_true")
 
     args = parser.parse_args()
+    args.listfile_dir = os.path.join(BASE_DIR, args.listfile_dir)
+    args.calib_dir = os.path.join(BASE_DIR, args.calib_dir)
+    args.root_dir = os.path.join(BASE_DIR, args.root_dir)
 
     assert os.path.isdir(args.listfile_dir)
     assert os.path.isdir(args.calib_dir)
@@ -75,19 +77,17 @@ if __name__ == "__main__":
             # next(reader, None)
 
             for row in reader:
-                disp_map = np.load(args.root_dir + "/" + row[0] + "/" + "left_disp.npy")
-                # print(row[0])
-                if not os.path.exists(
-                    os.path.join(args.root_dir + "/" + row[0], "output")
-                ):
-                    os.mkdir(os.path.join(args.root_dir + "/" + row[0], "output"))
+                path = os.path.join(args.root_dir, row[0], "output")
+                if not os.path.exists(path):
+                    os.mkdir(path)
 
-                os.chdir(os.path.join(args.root_dir + "/" + row[0], "output"))
+                disp_map = np.load(os.path.join(path, "left_disp.npy"))
                 disp_map = (disp_map * 256).astype(np.uint16) / 256.0
                 lidar = project_disp_to_points(calib, disp_map, args.max_high)
-
                 lidar = np.concatenate([lidar, np.ones((lidar.shape[0], 1))], 1)
                 lidar = lidar.astype(np.float32)
-                lidar.tofile("{}.bin".format("left_pl"))
-                # (os.path.join(row[0],"output"){{}.bin".format("left_lidar")) #("{}/{}.bin".format(args.save_dir, predix))
-                os.chdir("../../../../../../..")
+
+                cd = os.getcwd()
+                os.chdir(path)
+                lidar.tofile("{}.bin".format("pseudo_lidar"))
+                os.chdir(cd)

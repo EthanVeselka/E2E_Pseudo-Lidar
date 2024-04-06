@@ -53,14 +53,11 @@ class Calibration(object):
         # Camera intrinsics and extrinsics
         self.c_u = self.P[0, 2]
         self.c_v = self.P[1, 2]
-        self.f_u = self.P[0, 0]     
-        self.f_v = self.P[1, 1] 
+        self.f_u = self.P[0, 0]
+        self.f_v = self.P[1, 1]
         self.b_x = self.P[0, 3] / (-self.f_u)  # relative
         self.b_y = self.P[1, 3] / (-self.f_v)
-        
-        #for i in self.P:
-            #for thing in i:
-               # print(i,thing)
+
         print("self.f_v", self.f_v)
 
     def read_calib_file(self, filepath):
