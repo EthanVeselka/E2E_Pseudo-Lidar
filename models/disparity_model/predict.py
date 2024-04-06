@@ -9,9 +9,6 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data
 import torch.nn.functional as F
-import skimage
-import skimage.io
-import skimage.transform
 import numpy as np
 import time
 import math
