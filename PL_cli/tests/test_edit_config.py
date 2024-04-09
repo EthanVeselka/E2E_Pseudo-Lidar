@@ -1,7 +1,7 @@
 import unittest
 import sys
-sys.path.insert(0, '..\PL_cli\\')
-from PL_cli.edit_config import edit_config
+sys.path.append("../")
+from .. import edit_config
 
 class TestEditConfig(unittest.TestCase):
     def test_edit_config_valid_inputs(self):
@@ -27,7 +27,6 @@ class TestEditConfig(unittest.TestCase):
 
     def test_edit_config_valid_inputs8(self):
         edit_config("weather", "1")
-
 
 
     def test_edit_config_invalid_inputs(self):

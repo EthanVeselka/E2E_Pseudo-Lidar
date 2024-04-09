@@ -2,8 +2,7 @@
 Implementing an end-to-end Pseudo-LiDAR model framework for autonomous driving in the CARLA simulator.
 
 # Command-Line Interface
-Usage: `python .\PL_cli\ [-h] [--key KEY] [--value VALUE]`
-You must be in the `PL_cli` directory to run the CLI. Note that there is another subdirectory called `PL_cli` within the `PL_cli` directory; run the commands from the outermost `PL_cli` directory.
+Usage: `python PL_cli [-h] [--key KEY] [--value VALUE]`
 
 ## Data Collection Options
 The `processing/config.ini` file can be modified through the PL_CLI. This file contains the parameters for CARLA data collection, which is then fed to the model. 

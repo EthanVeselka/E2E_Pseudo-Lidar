@@ -4,8 +4,8 @@ import os
 
 def edit_config(key: str, value: str):
     configs = ConfigParser(comment_prefixes="#", allow_no_value=True)
-    configs.read('../processing/config.ini')
-    
+    configs.read('processing/config.ini')
+
     # input validation for "all" key
     if key == "all":
         true_values = ["True", "true", "TRUE", "t", "T", "1"]
@@ -99,7 +99,7 @@ def edit_config(key: str, value: str):
         raise argparse.ArgumentTypeError(f"Error: Key {key} not found.")
 
     # write the new config file
-    out_file_path = "../processing/config.ini"
+    out_file_path = "./processing/config.ini"
     with open(out_file_path, "w") as f:
         configs.write(f)
 
