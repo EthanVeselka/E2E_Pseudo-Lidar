@@ -5,11 +5,6 @@ import os
 def edit_config(key: str, value: str):
     configs = ConfigParser(comment_prefixes="#", allow_no_value=True)
     configs.read('../processing/config.ini')
-    # print(configs.sections())
-    # print(configs.options("General"))
-    # print(configs.options("Path"))
-    # print(configs.options("Internal Variables"))
-    # print(configs.options("External Variables"))
     
     # input validation for "all" key
     if key == "all":
@@ -52,7 +47,6 @@ def edit_config(key: str, value: str):
             raise argparse.ArgumentTypeError(f"Error: Value {value} must be at least 10.")
         # TODO: Add a check for the maximum value of sample_size
         # TODO: Add a way to use all frames
-
 
         configs["General"]["sample_size"] = str(value)
 
@@ -105,7 +99,7 @@ def edit_config(key: str, value: str):
         raise argparse.ArgumentTypeError(f"Error: Key {key} not found.")
 
     # write the new config file
-    out_file_path = "../processing/dummy_config.ini"
+    out_file_path = "../processing/config.ini"
     with open(out_file_path, "w") as f:
         configs.write(f)
 

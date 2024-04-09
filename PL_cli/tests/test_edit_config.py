@@ -1,8 +1,6 @@
 import unittest
-import argparse
 import sys
 sys.path.insert(0, '..\PL_cli\\')
-sys.path.insert(0, '..\processing\\')
 from PL_cli.edit_config import edit_config
 
 class TestEditConfig(unittest.TestCase):
