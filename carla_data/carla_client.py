@@ -384,7 +384,13 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
                 continue
             
             bbox_elem = ET.SubElement(root, "BoundingBox")
-            bbox_elem.set("class", str(type(actor)).split("'")[1])
+            # bbox_elem.set("class", str(type(actor)).split("'")[1])
+            
+            if "base_type" in actor.attributes and actor.attributes["base_type"] != "":
+                bbox_elem.set("class", actor.attributes["base_type"].capitalize())
+            else:
+                bbox_elem.set("class", str(type(actor)).split("'")[1].split(".")[-1])
+                
             position_transform = bb_transform_dict[actor_id][1]
 
             good_frame = False
