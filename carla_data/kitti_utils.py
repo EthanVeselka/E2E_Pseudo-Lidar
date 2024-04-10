@@ -6,10 +6,16 @@ import configparser
 def write_episode_kitti(output_path):
     # declare class names from written classes in CARLA data saves
     class_names = {
-    'carla.libcarla.Vehicle' : 'Vehicle',
-    'carla.libcarla.Pedestrian' : 'Pedestrian',
-    'carla.libcarla.TrafficSign' : 'TrafficSign',
-    'carla.libcarla.TrafficLight' : 'TrafficLight'
+        'carla.libcarla.Vehicle' : 'Vehicle',
+        'carla.libcarla.Pedestrian' : 'Pedestrian',
+        'carla.libcarla.TrafficSign' : 'TrafficSign',
+        'carla.libcarla.TrafficLight' : 'TrafficLight',
+        'Car' : 'Car',
+        'Truck' : 'Truck',
+        'Van' : 'Van',
+        'Bus' : 'Bus',
+        'Bicycle' : 'Bicycle',
+        'Motorcycle' : 'Motorcycle'
     }
 
     # go through each sample in the specified output_path
