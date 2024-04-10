@@ -161,6 +161,7 @@ def random_shift_box2d(box2d, shift_ratio=0.1):
     cy2 = cy + h * r * (np.random.random() * 2 - 1)
     h2 = h * (1 + np.random.random() * 2 * r - r)  # 0.9 to 1.1
     w2 = w * (1 + np.random.random() * 2 * r - r)  # 0.9 to 1.1
+    print(cy2, h2)
     return np.array([cx2 - w2 / 2.0, cy2 - h2 / 2.0, cx2 + w2 / 2.0, cy2 + h2 / 2.0])
 
 
@@ -217,6 +218,7 @@ def extract_frustum_data(
         pc_rect = np.zeros_like(pc_velo)
         pc_rect[:, 0:3] = calib.project_velo_to_rect(pc_velo[:, 0:3])
         pc_rect[:, 3] = pc_velo[:, 3]
+        # print(pc_rect.shape)
         img = dataset.get_image(data_idx)
         img_height, img_width, img_channel = img.shape
         _, pc_image_coord, img_fov_inds = get_lidar_in_image_fov(
@@ -244,6 +246,7 @@ def extract_frustum_data(
                     & (pc_image_coord[:, 1] >= ymin)
                 )
                 box_fov_inds = box_fov_inds & img_fov_inds
+                # print(box_fov_inds)
                 pc_in_box_fov = pc_rect[box_fov_inds, :]
                 # Get frustum angle (according to center pixel in 2D BOX)
                 box2d_center = np.array([(xmin + xmax) / 2.0, (ymin + ymax) / 2.0])

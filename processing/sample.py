@@ -4,10 +4,14 @@ import torch
 import numpy as np
 import configparser
 from ast import literal_eval
+import sys
+
+BASE_DIR = ".."
+# sys.path.append(BASE_DIR)
 
 
 # ---WARNING: INCOMPLETE---#
-def sample(root, config="config.ini", save_file_path="./output"):
+def sample(config="config.ini", save_file_path="carla_data/output"):
     """
     Sample from root directory using config, returns listfiles for train/test splits
 
@@ -18,11 +22,12 @@ def sample(root, config="config.ini", save_file_path="./output"):
     :param save_file_path: directory where listfiles will be saved
     :type save_file_path: str
     """
-
-    print(os.getcwd())
+    if save_file_path == "carla_data/output":
+        save_file_path = os.path.join(os.getcwd(), BASE_DIR, save_file_path)
 
     conf = configparser.ConfigParser()
-    conf.read(os.path.join("processing",config))
+    conf.read(os.path.join(os.getcwd(), config))
+    conf.sections()
 
     ALL = conf["General"]["ALL"]
     SPLITS = conf["General"]["SPLITS"]
@@ -33,12 +38,12 @@ def sample(root, config="config.ini", save_file_path="./output"):
     WEATHER = conf["External Variables"]["WEATHER"]
     MAP = conf["External Variables"]["MAP"]
 
-    DATA_PATH = os.path.join(os.getcwd(), DATA_PATH)
+    DATA_PATH = os.path.join(os.getcwd(), BASE_DIR, DATA_PATH)
     SPLITS = literal_eval(SPLITS)
-    #SPLITS = [float(x) for x in SPLITS]
+    # SPLITS = [float(x) for x in SPLITS]
     SAMPLE_SIZE = int(SAMPLE_SIZE)
     WEATHER = int(WEATHER)
-    
+
     # Check values
     try:
         assert ALL in ["True", "False"]
@@ -51,7 +56,6 @@ def sample(root, config="config.ini", save_file_path="./output"):
             assert WEATHER in [1, 2, 5, 8, 9, 12]
             assert MAP in ["Town01", "Town02", "Town07"]
     except AssertionError:
-        print(SPLITS)
         raise ValueError("Invalid configuration parameters. Please check config.ini.")
 
     frames = []
@@ -77,38 +81,43 @@ def sample(root, config="config.ini", save_file_path="./output"):
                 continue
             os.chdir(iteration)
             curr_dir = DATA_PATH + "/" + episode + "/" + iteration
-            
+
             for timestamp in os.listdir(curr_dir):
                 if timestamp == config:
                     continue
-                
+
                 os.chdir(timestamp)
                 curr_dir = DATA_PATH + "/" + episode + "/" + iteration + "/" + timestamp
-                list_dir =  episode + "/" + iteration + "/" + timestamp
-                
+                list_dir = episode + "/" + iteration + "/" + timestamp
+
                 it_conf = configparser.ConfigParser()
                 it_conf.read(config)
 
                 if ALL or (
-                    it_conf["External Variables"]["EXTERNAL_BEHAVIOR"] == EXTERNAL_BEHAVIOR
+                    it_conf["External Variables"]["EXTERNAL_BEHAVIOR"]
+                    == EXTERNAL_BEHAVIOR
                     and it_conf["External Variables"]["WEATHER"] == WEATHER
                     and it_conf["External Variables"]["MAP"] == MAP
                 ):
-                    frames.extend([frame for frame in os.listdir(curr_dir) if frame != "config.ini"])
+                    frames.extend(
+                        [
+                            frame
+                            for frame in os.listdir(curr_dir)
+                            if frame != "config.ini"
+                        ]
+                    )
 
-            
-                
     # randomly sample indices from directories
-    #print(range(len(frames)), curr_dir)
+    # print(range(len(frames)), curr_dir)
     random_indices = random.sample(range(len(frames)), SAMPLE_SIZE)
     random.shuffle(random_indices)
-    
+
     train_len = int(SPLITS[0] * SAMPLE_SIZE)
     val_len = int(SPLITS[1] * SAMPLE_SIZE)
 
     train = random_indices[:train_len]
     val = random_indices[train_len : train_len + val_len]
-    test = random_indices[train_len + val_len:]
+    test = random_indices[train_len + val_len :]
 
     file = open(save_file_path + "/train.csv", "w")
     for idx in train:
@@ -125,10 +134,7 @@ def sample(root, config="config.ini", save_file_path="./output"):
     for idx in test:
         file.write(list_dir + "/" + frames[idx] + "\n")
     file.close()
-    
+
     os.chdir("../../../../..")
 
     return save_file_path
-
-
-# sample("../carla_data/data")

@@ -82,7 +82,7 @@ def generate_disparity(filepath):
                         ]  # Convert values to floats
                         points.append(point)
 
-                    print("s:", len(points), frame)
+                    # print("s:", len(points), frame)
                     point_cloud = np.array(points)
                     img = Image.open("left_rgb.png")
                     width, height = img.size

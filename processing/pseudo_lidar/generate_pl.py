@@ -2,14 +2,12 @@ import argparse
 import os
 import sys
 import numpy as np
-import scipy.misc as ssc
+import csv
 
 
 sys.path.append("../..")
 BASE_DIR = "../.."
 import processing.pseudo_lidar.calib_utils as calib_utils
-import csv
-import configparser
 
 # Generates psuedo-lidar point clouds from disparity | depth-map, used for Lidar 3-D bb pred #
 
@@ -42,7 +40,7 @@ def project_depth_to_points(calib, depth, max_high):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate Libar")
+    parser = argparse.ArgumentParser(description="Generate Lidar")
     parser.add_argument("--root_dir", type=str, default="carla_data/example_data")
     parser.add_argument("--max_high", type=int, default=1)
     parser.add_argument("--is_depth", action="store_true")
