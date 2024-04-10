@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 import configparser
 import threading
 import shutil
+import copy
 from math import tan, pi
     
 from agents.navigation.behavior_agent import BehaviorAgent 
@@ -335,7 +336,29 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
         # Save semantic lidar data to path
         file_name = '%s.ply' % name
         full_path = os.path.join(sample_path, file_name)
-        data.save_to_disk(full_path)
+        
+        # new_data = carla.SemanticLidarMeasurement()
+        with open(full_path, 'w') as file:
+            file.write("ply\n"
+           "format ascii 1.0\n"
+           "element vertex 7018\n"
+           "property float32 x\n"
+           "property float32 y\n"
+           "property float32 z\n"
+           "property float32 CosAngle\n"
+           "property uint32 ObjIdx\n"
+           "property uint32 ObjTag\n"
+           "end_header\n")
+            
+            for point in data:
+                file.write(str(point.point.x) + " "  + 
+                           str(point.point.y * -1.0) + " " + 
+                           str(point.point.z) + " " +
+                           str(point.cos_inc_angle) + " " +
+                           str(point.object_idx) + " " +
+                           str(point.object_tag) + "\n")
+
+        # data.save_to_disk(full_path)
         
         actor_set = set()
         
