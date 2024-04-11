@@ -3,6 +3,6 @@ python3 ../finetune_3d.py \
     --maxdisp 192 \
     --datapath carla_data/example_data/ \
     --split_file carla_data/output \
-    --epochs 3 \
+    --epochs 20 \
     --lr_scale 50 \
-    --btrain 2
+    --btrain 12

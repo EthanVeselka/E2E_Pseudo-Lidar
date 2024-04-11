@@ -30,8 +30,7 @@ module load torchvision
 
 # nvidia-driver/default
 
-cd models/disparity_model/scripts/
+cd processing/
 
-sh predict.sh
-# sh train.sh
+sh process.sh
 
