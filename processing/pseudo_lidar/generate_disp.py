@@ -7,6 +7,7 @@ from PIL import Image
 
 # import calib_utils
 sys.path.append("../..")
+BASE_DIR = ".."
 import processing.pseudo_lidar.calib_utils as calib_utils
 
 
@@ -39,8 +40,10 @@ def generate_disparity_from_velo(pc_velo, height, width, calib):
 def generate_disparity(filepath):
 
     config = "config.ini"
-    calib = calib_utils.Calibration(filepath + "/calibmatrices.txt")
-    filepath = os.path.join(os.getcwd(), filepath)
+    calib = calib_utils.Calibration(
+        os.path.join(BASE_DIR, filepath, "calibmatrices.txt")
+    )
+    filepath = os.path.join(os.getcwd(), BASE_DIR, filepath)
     os.chdir(filepath)
 
     for episode in os.listdir(filepath):

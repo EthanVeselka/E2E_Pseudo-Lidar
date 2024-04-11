@@ -613,6 +613,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Only generate cars; otherwise cars, peds and cycs",
     )
+    parser.add_argument(
+        "--carpedcyc_only",
+        action="store_true",
+        help="Only generate cars; otherwise cars, peds and cycs",
+    )
     args = parser.parse_args()
 
     if args.demo:
@@ -622,9 +627,20 @@ if __name__ == "__main__":
     if args.car_only:
         type_whitelist = ["Car"]
         output_prefix = "frustum_caronly_"
-    else:
-        type_whitelist = ["Car", "Pedestrian", "Cyclist"]
+    elif args.carpedcyc_only:
+        type_whitelist = ["Car", "Pedestrian", "Bicycle"]
         output_prefix = "frustum_carpedcyc_"
+    elif args.carpedcyc_only:
+        type_whitelist = [
+            "Car",
+            "Pedestrian",
+            "Bicycle",
+            "TrafficLight",
+        ]
+        output_prefix = "frustum_all_"
+    else:
+        type_whitelist = ["Car"]
+        output_prefix = "frustum_caronly_"
 
     if args.gen_train:
         extract_frustum_data(

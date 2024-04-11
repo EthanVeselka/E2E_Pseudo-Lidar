@@ -32,7 +32,7 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
     ALL = conf["General"]["ALL"]
     SPLITS = conf["General"]["SPLITS"]
     SAMPLE_SIZE = conf["General"]["SAMPLE_SIZE"]
-    DATA_PATH = conf["Path"]["DATA_PATH"]
+    DATA_PATH = conf["Paths"]["DATA_PATH"]
     EGO_BEHAVIOR = conf["Internal Variables"]["EGO_BEHAVIOR"]
     EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
     WEATHER = conf["External Variables"]["WEATHER"]

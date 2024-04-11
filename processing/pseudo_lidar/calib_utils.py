@@ -1,6 +1,11 @@
 from __future__ import print_function
 
 import numpy as np
+import sys
+import os
+
+# BASE_DIR = ".."
+# sys.path.append("..")
 
 
 class Calibration(object):
@@ -38,7 +43,7 @@ class Calibration(object):
 
     def __init__(self, calib_filepath):
 
-        calibs = self.read_calib_file(calib_filepath)
+        calibs = self.read_calib_file(os.path.join(calib_filepath))
         # Projection matrix from rect camera coord to image2 (left) coord
         self.P = calibs["P0"]
         self.P = np.reshape(self.P, [3, 4])

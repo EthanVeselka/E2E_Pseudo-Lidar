@@ -59,6 +59,9 @@ def clean_output(datapath):
                         os.chdir("..")
 
     os.chdir("../../../../output")
-    os.rm("train.csv")
-    os.rm("val.csv")
-    os.rm("test.csv")
+    if os.path.exists("train.csv"):
+        os.remove("train.csv")
+    if os.path.exists("val.csv"):
+        os.remove("val.csv")
+    if os.path.exists("test.csv"):
+        os.remove("test.csv")
