@@ -758,7 +758,7 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
                     s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
                     s_lidar_bp.set_attribute('lower_fov', str(-30.0))
                     s_lidar_bp.set_attribute('upper_fov', str(30.0))
-                    s_lidar_bp.set_attribute('points_per_second', str(1792000))
+                    s_lidar_bp.set_attribute('points_per_second', str(448000))
                     s_lidar_bp.set_attribute('channels', str(128.0)) 
                     transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
@@ -1247,7 +1247,7 @@ def main():
             write_episode_kitti(output_path)
             clean_data()
 
-def match_dynamic_static(dynamic_objects, static_objects):
+def match_dynamic_static(dynamic_objects, static_objects, dynamic_tree_root):
     for dynamic_object in dynamic_objects:
         closest_static = (None, float('inf'))
         
@@ -1268,14 +1268,15 @@ def match_dynamic_static(dynamic_objects, static_objects):
         # Assign dynamic actor id to closest static object
         if closest_static[0]:
             closest_static[0].set("actorId", dynamic_object.attrib["actorId"])
+            object = closest_static[0]
             # Update dynamic object edges to closest static
-            for i in range(12):
-                new_edge = closest_static[0].find("edge" + str(i))
-                old_edge = dynamic_object.find("edge" + str(i))
-                old_edge.set('x1', new_edge.get('x1'))
-                old_edge.set('y1', new_edge.get('y1'))
-                old_edge.set('x2', new_edge.get('x2'))
-                old_edge.set('y2', new_edge.get('y2'))
+            bbox_elem = ET.SubElement(dynamic_tree_root, 'BoundingBox', attrib=object.attrib)
+            for child in object:
+                child_copy = ET.SubElement(bbox_elem, child.tag, attrib=child.attrib)
+                # Copy text content if any
+                if child.text:
+                    child_copy.text = child.text
+            dynamic_tree_root.remove(dynamic_object)
 
 
 def move_unmatched_static(static_objects, static_tree, occlude_tree_root):
@@ -1294,6 +1295,8 @@ def move_unmatched_static(static_objects, static_tree, occlude_tree_root):
 def clean_data():
     frames = list(os.scandir(output_path))
     
+    deleted_frames = 0
+    
     for frame in frames:
         if frame.name == "config.ini":
             continue
@@ -1303,6 +1306,7 @@ def clean_data():
         # Remove frames that are missing data
         if len(list(frame_data)) < FILES_PER_FRAME:
             shutil.rmtree(frame)
+            deleted_frames += 1
             continue
         
         dynamic_tree = ET.parse(os.path.join(frame.path, 'dynamic_bbs.xml'))
@@ -1311,15 +1315,15 @@ def clean_data():
         dynamic_tree_root = dynamic_tree.getroot()
         static_tree_root = static_tree.getroot()
         
-        dynamic_traffic_lights = dynamic_tree_root.findall('.//BoundingBox[@class="carla.libcarla.TrafficLight"]')
-        dynamic_traffic_signs = dynamic_tree_root.findall('.//BoundingBox[@class="carla.libcarla.TrafficSign"]')
+        dynamic_traffic_lights = dynamic_tree_root.findall('.//BoundingBox[@class="TrafficLight"]')
+        dynamic_traffic_signs = dynamic_tree_root.findall('.//BoundingBox[@class="TrafficSign"]')
         
         static_traffic_lights = static_tree_root.findall('.//BoundingBox[@class="TrafficLight"]')
         static_traffic_signs = static_tree_root.findall('.//BoundingBox[@class="TrafficSigns"]')
         
         # Match dynamic objects to static objects by distance
-        match_dynamic_static(dynamic_traffic_lights, static_traffic_lights)
-        match_dynamic_static(dynamic_traffic_signs, static_traffic_signs)
+        match_dynamic_static(dynamic_traffic_lights, static_traffic_lights, dynamic_tree_root)
+        match_dynamic_static(dynamic_traffic_signs, static_traffic_signs, dynamic_tree_root)
         
         # Create occluded bb tree and populate with occluded boxes
         occlude_tree_root = ET.Element("OccludedBoundingBoxes")
@@ -1335,6 +1339,7 @@ def clean_data():
         dynamic_tree.write(os.path.join(frame.path, 'dynamic_bbs.xml'))
     
     frame_count = len(frames)
+    print("deleted frames:", deleted_frames)
     
     key = EGO_BEHAVIOR + "_" + EXTERNAL_BEHAVIOR + "_" + str(WEATHER) + "_" + MAP
 
