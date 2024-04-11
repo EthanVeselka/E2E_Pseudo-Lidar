@@ -1333,6 +1333,7 @@ def clean_data():
         move_unmatched_static(static_traffic_signs, static_tree_root, occlude_tree_root)
         
         indent(occlude_tree_root)
+        indent(dynamic_tree_root)
         
         static_tree.write(os.path.join(frame.path, 'static_bbs.xml'))
         occlude_tree.write(os.path.join(frame.path, 'obscured_bbs.xml'))
