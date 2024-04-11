@@ -1271,13 +1271,23 @@ def match_dynamic_static(dynamic_objects, static_objects, dynamic_tree_root):
             object = closest_static[0]
             # Update dynamic object edges to closest static
             bbox_elem = ET.SubElement(dynamic_tree_root, 'BoundingBox', attrib=object.attrib)
+            verts_elem = ET.SubElement(bbox_elem, 'verts')
+            
             for child in object:
-                child_copy = ET.SubElement(bbox_elem, child.tag, attrib=child.attrib)
-                # Copy text content if any
-                if child.text:
-                    child_copy.text = child.text
+                # Copy verts and children
+                if child.tag == 'verts':
+                    for vertex in child:
+                        # Create a copy of the vertex and append it to verts_elem
+                        vertex_copy = ET.SubElement(verts_elem, vertex.tag, attrib=vertex.attrib)
+                        if vertex.text:
+                            vertex_copy.text = vertex.text
+                else:
+                    # For other children, create a copy and append them directly to bbox_elem
+                    child_copy = ET.SubElement(bbox_elem, child.tag, attrib=child.attrib)
+                    if child.text:
+                        child_copy.text = child.text
+                        
             dynamic_tree_root.remove(dynamic_object)
-
 
 def move_unmatched_static(static_objects, static_tree, occlude_tree_root):
     for object in static_objects:
