@@ -6,9 +6,6 @@ import argparse
 import logging
 import pygame
 import random
-from agents.navigation.behavior_agent import BehaviorAgent 
-from agents.navigation.basic_agent import BasicAgent  
-from agents.navigation.constant_velocity_agent import ConstantVelocityAgent  
 import time
 import datetime
 import os
@@ -87,7 +84,8 @@ def indent(elem, level=0):
 def load_bbs(sample_path):
     bbs = []
     
-    bb_types = set()
+    bb_types = set(['DYNAMIC'])
+    dynamic_types = set()
     
     try:
         filename1 = 'dynamic_bbs.xml'
@@ -104,7 +102,7 @@ def load_bbs(sample_path):
         for child in root1:
             bb_types.add(child.attrib['class'])
             bbs.append(child)
-    
+            dynamic_types.add(child.attrib['class'])    
         
         for child in root2:
             #print(child.tag, child.attrib)
@@ -115,17 +113,17 @@ def load_bbs(sample_path):
         None
     
     
-    return bb_types, bbs
+    return bb_types, dynamic_types, bbs
     
     
 
-def view_image(display, image_path, frame_num, bbs, bb_class, font):
+def view_image(display, image_path, frame_num, bbs, bb_class, dynamic_classes, font):
     imp = pygame.image.load(image_path).convert()
     
     for bb in bbs:
         #print('bb:', bb)
         #print('bb_stuff:', bb.tag, bb.attrib)
-        if bb.attrib['class'] == bb_class:
+        if bb.attrib['class'] == bb_class or (bb_class == 'DYNAMIC' and bb.attrib['class'] in dynamic_classes):
             if bb_2d:
                 twoD_bb = bb.find("Box2d")
                 print(twoD_bb.attrib)
@@ -134,10 +132,10 @@ def view_image(display, image_path, frame_num, bbs, bb_class, font):
                 y_min = float(twoD_bb.attrib['yMin'])
                 y_max = float(twoD_bb.attrib['yMax'])
                     
-                pygame.draw.line(imp, (255,0,0), (x_min, y_min), (x_max, y_min))
-                pygame.draw.line(imp, (255,0,0), (x_min, y_max), (x_max, y_max))
-                pygame.draw.line(imp, (255,0,0), (x_min, y_min), (x_min, y_max))
-                pygame.draw.line(imp, (255,0,0), (x_max, y_min), (x_max, y_max))
+                pygame.draw.line(imp, (0,255,0), (x_min, y_min), (x_max, y_min))
+                pygame.draw.line(imp, (0,255,0), (x_min, y_max), (x_max, y_max))
+                pygame.draw.line(imp, (0,255,0), (x_min, y_min), (x_min, y_max))
+                pygame.draw.line(imp, (0,255,0), (x_max, y_min), (x_max, y_max))
             else:
                 for child in bb:
                     title = child.tag
@@ -145,7 +143,7 @@ def view_image(display, image_path, frame_num, bbs, bb_class, font):
                         #print('startpos:', (child.attrib['x1'], child.attrib['y1']))
                         start_pos = (float(child.attrib['x1']), float(child.attrib['y1']))
                         end_pos = (float(child.attrib['x2']), float(child.attrib['y2']))
-                        pygame.draw.line(imp, (255,0,0), start_pos, end_pos)
+                        pygame.draw.line(imp, (0,255,0), start_pos, end_pos, width=5)
 
     
 
@@ -258,12 +256,11 @@ def main():
     first_sample = samples[0]
     first_sample_path = os.path.join(iteration_path, first_sample)
     left_rgb_path = os.path.join(first_sample_path, 'left_rgb.png')
-    
-    bb_classes, bbs = load_bbs(first_sample_path)
+    bb_classes, dynamic_classes, bbs = load_bbs(first_sample_path)
     for sample in samples:
         try:
             sample_path = os.path.join(iteration_path, sample)
-            new_classes, _ = load_bbs(sample_path)
+            new_classes, _, __ = load_bbs(sample_path)
             bb_classes = bb_classes.union(new_classes)
             #print(bb_classes)
         except Exception as e:
@@ -365,12 +362,12 @@ def main():
         sample_path = os.path.join(iteration_path, sample)
         img_name = img_types[img_type_i]
         image_path = os.path.join(sample_path, img_name)
-        _, bbs = load_bbs(sample_path)
+        _, __, bbs = load_bbs(sample_path)
         bb_class = bb_classes[bb_class_i]     
         try:
-            view_image(display, image_path, sample, bbs, bb_class, font)
-        except:
-            None
+            view_image(display, image_path, sample, bbs, bb_class, dynamic_classes, font)
+        except Exception as e:
+            print(e)
         pygame.display.update()
         
             

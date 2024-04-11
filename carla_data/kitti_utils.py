@@ -15,7 +15,11 @@ def write_episode_kitti(output_path):
         'Van' : 'Van',
         'Bus' : 'Bus',
         'Bicycle' : 'Bicycle',
-        'Motorcycle' : 'Motorcycle'
+        'Motorcycle' : 'Motorcycle',
+        'TrafficLight' : 'TrafficLight',
+        'Vehicle' : 'Vehicle',
+        'TrafficSign' : 'TrafficSign',
+        'Pedestrian' : 'Pedestrian'
     }
 
     # go through each sample in the specified output_path
@@ -58,9 +62,9 @@ def write_episode_kitti(output_path):
                     z = center.attrib['z']
                     rot_y = float(orientation.attrib['yaw']) * pi / 180
 
-                    # put desired attricbutes in string
+                    # put desired attributes in string
                     alpha_str = orientation.get('observation_angle') + ' '
-                    box2d_str = x_min + ' ' + y_max + ' ' + x_max + ' ' + y_min + ' '
+                    box2d_str = x_min + ' ' + y_min + ' ' + x_max + ' ' + y_max + ' '
                     shape_str = height + ' ' + width + ' ' + length + ' '
                     pos_str = x + ' ' + y + ' ' + z + ' '
                     rot_str = str(rot_y) + '\n'
@@ -69,6 +73,8 @@ def write_episode_kitti(output_path):
                     out_str = label + ' 1 0 ' + alpha_str + box2d_str + shape_str + pos_str + rot_str
                     # write string to sample kitti output file
                     dest.write(out_str)
+                else:
+                    print('unexpected class name:', bb_class)
 
 # if main, do write_episode_kitti() for path specified in config file
 if __name__ == '__main__':

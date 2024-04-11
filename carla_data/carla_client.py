@@ -133,6 +133,31 @@ def build_calibration_mat(values):
     P = K @ flip @ matrix[:3, :]
     return P
 
+def save_calibration_mats(p0, p1):
+
+    def write_mat(mat, dest):
+        for row in mat:
+            for elem in row:
+                dest.write(str(elem) + ' ')
+            dest.write('\n')
+
+
+    r0 = np.identity(3)
+    
+    TR_velodyne = np.array([[0, -1, 0],
+                            [0, 0, -1],
+                            [1, 0, 0]])
+    TR_velodyne = np.column_stack((TR_velodyne, np.array([0, 0, 0])))
+    with open(os.path.join(DATA_PATH, "calibrations.txt"), 'w') as dest:
+        dest.write('P0:\n')
+        write_mat(p0, dest)
+        dest.write('P1:\n')
+        write_mat(p1, dest)
+        dest.write('R0_rect:\n')
+        write_mat(r0, dest)
+        dest.write('tr_velodyne_to_cam:\n')
+        write_mat(TR_velodyne, dest)
+
             
 def save_boxes(world, sample_path, transform, frame_num):
     global position_dict
@@ -659,11 +684,8 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
         }
         right_mat = build_calibration_mat(right_rgb_vals)
 
-        # save camera calibration to episode directory
-        left_path = os.path.join(episode_path, "left_rgb_mat.csv")
-        right_path = os.path.join(episode_path, "right_rgb_mat.csv")
-        np.savetxt(left_path, left_mat, delimiter=",")
-        np.savetxt(right_path, right_mat, delimiter=",")
+        # save camera calibration to data directory
+        save_calibration_mats(left_mat, right_mat)
                 
        
         bp_library = world.world.get_blueprint_library()
@@ -758,8 +780,8 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
                     s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
                     s_lidar_bp.set_attribute('lower_fov', str(-30.0))
                     s_lidar_bp.set_attribute('upper_fov', str(30.0))
-                    s_lidar_bp.set_attribute('points_per_second', str(1792000))
-                    s_lidar_bp.set_attribute('channels', str(128.0)) 
+                    s_lidar_bp.set_attribute('points_per_second', str(448000))
+                    s_lidar_bp.set_attribute('channels', str(64.0)) 
                     transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
                     
