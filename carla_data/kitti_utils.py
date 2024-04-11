@@ -19,7 +19,7 @@ def write_episode_kitti(output_path):
         'TrafficLight' : 'TrafficLight',
         'Vehicle' : 'Vehicle',
         'TrafficSign' : 'TrafficSign',
-        'Pedestrian' : 'Pedestrian'
+        'Walker' : 'Walker'
     }
 
     # go through each sample in the specified output_path

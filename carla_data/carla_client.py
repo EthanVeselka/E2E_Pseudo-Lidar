@@ -148,7 +148,7 @@ def save_calibration_mats(p0, p1):
                             [0, 0, -1],
                             [1, 0, 0]])
     TR_velodyne = np.column_stack((TR_velodyne, np.array([0, 0, 0])))
-    with open(os.path.join(DATA_PATH, "calibrations.txt"), 'w') as dest:
+    with open(os.path.join(DATA_PATH, "calibmatrices.txt"), 'w') as dest:
         dest.write('P0:\n')
         write_mat(p0, dest)
         dest.write('P1:\n')
@@ -1371,7 +1371,7 @@ def clean_data():
         occlude_tree.write(os.path.join(frame.path, 'obscured_bbs.xml'))
         dynamic_tree.write(os.path.join(frame.path, 'dynamic_bbs.xml'))
     
-    frame_count = len(frames)
+    frame_count = len(frames) - deleted_frames
     print("deleted frames:", deleted_frames)
     
     key = EGO_BEHAVIOR + "_" + EXTERNAL_BEHAVIOR + "_" + str(WEATHER) + "_" + MAP
