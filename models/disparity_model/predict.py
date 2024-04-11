@@ -52,6 +52,12 @@ parser.add_argument(
     action="store_true",
     help="if true save the png file",
 )
+parser.add_argument(
+    "--test_accuracy",
+    action="store_true",
+    default=False,
+    help="if true output the accuracy of the model",
+)
 args = parser.parse_args()
 
 
@@ -66,6 +72,14 @@ split_file = os.path.join(BASE_DIR, args.split_file)
 task = "all" if args.all else "test"
 save_path = "../predictions" if (task == "test") else "output"
 test_left_img, test_right_img, true_disps = ls.dataloader(datapath, split_file, task)
+
+TestImgLoader = torch.utils.data.DataLoader(
+    DA.myImageFloder(test_left_img, test_right_img, true_disps, True),
+    batch_size=1,
+    shuffle=True,
+    num_workers=4,
+    drop_last=False,
+)
 
 model = stackhourglass(args.maxdisp)
 
@@ -82,6 +96,34 @@ print(
         sum([p.data.nelement() for p in model.parameters()])
     )
 )
+
+def test_accuracy(imgL, imgR, disp_true):
+    model.eval()
+    imgL = torch.FloatTensor(imgL)
+    imgR = torch.FloatTensor(imgR)
+
+    if args.cuda:
+        imgL, imgR = imgL.cuda(), imgR.cuda()
+
+    with torch.no_grad():
+        output3 = model(imgL, imgR)
+
+    pred_disp = output3.data.cpu()
+
+    # computing 3-px error#
+    true_disp = disp_true
+    index = np.argwhere(true_disp > 0)
+    disp_true[index[0][:], index[1][:], index[2][:]] = np.abs(
+        true_disp[index[0][:], index[1][:], index[2][:]]
+        - pred_disp[index[0][:], index[1][:], index[2][:]]
+    )
+    correct = (disp_true[index[0][:], index[1][:], index[2][:]] < 3) | (
+        disp_true[index[0][:], index[1][:], index[2][:]]
+        < true_disp[index[0][:], index[1][:], index[2][:]] * 0.05
+    )
+    torch.cuda.empty_cache()
+
+    return float(torch.sum(correct)) / float(len(index[0]))
 
 
 def test(imgL, imgR):
@@ -109,70 +151,83 @@ def main():
     if task == "test" and not os.path.exists(save_path):
         os.mkdir(save_path)
 
-    for idx in range(len(test_left_img)):
-        imgL_o = Image.open(test_left_img[idx]).convert("RGB")
-        imgR_o = Image.open(test_right_img[idx]).convert("RGB")
+    total = 0
+    counter = 0
+    
+    if args.test_accuracy:
+        total = 0
+        
+        for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(TestImgLoader):
+            total += test_accuracy(imgL_crop, imgR_crop, disp_crop_L)
+            
+        print("Accuracy: ", str(total/len(test_left_img)))
+        return
+        
+    else:
+        for idx in range(len(test_left_img)):
+            imgL_o = Image.open(test_left_img[idx]).convert("RGB")
+            imgR_o = Image.open(test_right_img[idx]).convert("RGB")
 
-        w = 1248
-        h = 384
-        imgL = np.array(imgL_o.crop((0, 0, w, h))).astype("float32")
-        imgR = np.array(imgR_o.crop((0, 0, w, h))).astype("float32")
-        # imgL = np.array(imgL).astype("float32")
-        # imgR = np.array(imgR).astype("float32")
-        imgL = processed(imgL).numpy()
-        imgR = processed(imgR).numpy()
-        imgL = np.reshape(imgL, [1, 3, imgL.shape[1], imgL.shape[2]])
-        imgR = np.reshape(imgR, [1, 3, imgR.shape[1], imgR.shape[2]])
+            w = 1248
+            h = 384
+            imgL = np.array(imgL_o.crop((0, 0, w, h))).astype("float32")
+            imgR = np.array(imgR_o.crop((0, 0, w, h))).astype("float32")
+            # imgL = np.array(imgL).astype("float32")
+            # imgR = np.array(imgR).astype("float32")
+            imgL = processed(imgL).numpy()
+            imgR = processed(imgR).numpy()
+            imgL = np.reshape(imgL, [1, 3, imgL.shape[1], imgL.shape[2]])
+            imgR = np.reshape(imgR, [1, 3, imgR.shape[1], imgR.shape[2]])
 
-        # pad to (384, 1248)
-        top_pad = 384 - imgL.shape[2]
-        left_pad = 1248 - imgL.shape[3]
-        imgL = np.lib.pad(
-            imgL,
-            ((0, 0), (0, 0), (top_pad, 0), (0, left_pad)),
-            mode="constant",
-            constant_values=0,
-        )
-        imgR = np.lib.pad(
-            imgR,
-            ((0, 0), (0, 0), (top_pad, 0), (0, left_pad)),
-            mode="constant",
-            constant_values=0,
-        )
+            # pad to (384, 1248)
+            top_pad = 384 - imgL.shape[2]
+            left_pad = 1248 - imgL.shape[3]
+            imgL = np.lib.pad(
+                imgL,
+                ((0, 0), (0, 0), (top_pad, 0), (0, left_pad)),
+                mode="constant",
+                constant_values=0,
+            )
+            imgR = np.lib.pad(
+                imgR,
+                ((0, 0), (0, 0), (top_pad, 0), (0, left_pad)),
+                mode="constant",
+                constant_values=0,
+            )
 
-        start_time = time.time()
-        pred_disp = test(imgL, imgR)
-        print("time = %.2f" % (time.time() - start_time))
+            start_time = time.time()
+            pred_disp = test(imgL, imgR)
+            print("time = %.2f" % (time.time() - start_time))
 
-        # top_pad = 384 - 352
-        # left_pad = 1248 - 1200
-        # img = pred_disp[top_pad:, :-left_pad]
-        img = pred_disp
-        print(test_left_img[idx].split("/")[-1])
-        frame = test_left_img[idx].split("/")[-2]
-        if args.save_figure:
-            if task == "test":
-                Image.fromarray(img).convert("RGB").save(
-                    save_path + f"/predicted_disp_{frame}.png",
-                )
+            # top_pad = 384 - 352
+            # left_pad = 1248 - 1200
+            # img = pred_disp[top_pad:, :-left_pad]
+            img = pred_disp
+            print(test_left_img[idx].split("/")[-1])
+            frame = test_left_img[idx].split("/")[-2]
+            if args.save_figure:
+                if task == "test":
+                    Image.fromarray(img).convert("RGB").save(
+                        save_path + f"/predicted_disp_{frame}.png",
+                    )
+                else:
+                    Image.fromarray(img).convert("RGB").save(
+                        "/".join(test_left_img[idx].split("/")[:-1])
+                        + "/"
+                        + save_path
+                        + "/predicted_disp.png",
+                    )
             else:
-                Image.fromarray(img).convert("RGB").save(
-                    "/".join(test_left_img[idx].split("/")[:-1])
-                    + "/"
-                    + save_path
-                    + "/predicted_disp.png",
-                )
-        else:
-            if task == "test":
-                np.save(save_path + f"/predicted_disp_{frame}.npy", img)
-            else:
-                np.save(
-                    "/".join(test_left_img[idx].split("/")[:-1])
-                    + "/"
-                    + save_path
-                    + "/predicted_disp.npy",
-                    img,
-                )
+                if task == "test":
+                    np.save(save_path + f"/predicted_disp_{frame}.npy", img)
+                else:
+                    np.save(
+                        "/".join(test_left_img[idx].split("/")[:-1])
+                        + "/"
+                        + save_path
+                        + "/predicted_disp.npy",
+                        img,
+                    )
 
 
 if __name__ == "__main__":
