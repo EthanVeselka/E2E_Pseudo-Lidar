@@ -28,9 +28,9 @@ class Object3d(object):
 
         # extract 2d bounding box in 0-based coordinates
         self.xmin = data[4]  # left
-        self.ymin = data[7]  # top
+        self.ymin = data[5]  # top
         self.xmax = data[6]  # right
-        self.ymax = data[5]  # bottom
+        self.ymax = data[7]  # bottom
         self.box2d = np.array([self.xmin, self.ymin, self.xmax, self.ymax])
 
         # extract 3d bounding box information
