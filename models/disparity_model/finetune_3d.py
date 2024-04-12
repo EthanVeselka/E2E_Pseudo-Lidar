@@ -75,7 +75,7 @@ TrainImgLoader = torch.utils.data.DataLoader(
     DA.myImageFloder(all_left_img, all_right_img, all_left_disp, True),
     batch_size=args.btrain,
     shuffle=True,
-    num_workers=4,
+    num_workers=1,
     drop_last=False,
 )
 
@@ -89,10 +89,9 @@ ValImgLoader = torch.utils.data.DataLoader(
     DA.myImageFloder(all_left_img, all_right_img, all_left_disp, True),
     batch_size=args.btrain,
     shuffle=True,
-    num_workers=4,
+    num_workers=1,
     drop_last=False,
 )
-
 
 
 model = stackhourglass(args.maxdisp)
@@ -190,7 +189,6 @@ def main():
     max_acc = 0
     max_epo = 0
     start_full_time = time.time()
-    
 
     for epoch in range(args.start_epoch, args.epochs + 1):
         total_train_loss = 0
@@ -213,15 +211,14 @@ def main():
             "epoch %d total training loss = %.3f"
             % (epoch, total_train_loss / len(TrainImgLoader))
         )
-        
+
         total = 0
         counter = 0
         for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(ValImgLoader):
             total += test(imgL_crop, imgR_crop, disp_crop_L)
             counter += 1
-        
+
         print(f"epoch {epoch} average accuracy = {total/counter}".format("%d", "%.3f"))
-        
 
         # SAVE
         if not os.path.isdir("../" + args.savemodel):

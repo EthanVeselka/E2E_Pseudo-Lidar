@@ -76,7 +76,7 @@ TestImgLoader = torch.utils.data.DataLoader(
     DA.myImageFloder(test_left_img, test_right_img, true_disps, True),
     batch_size=1,
     shuffle=True,
-    num_workers=4,
+    num_workers=1,
     drop_last=False,
 )
 
@@ -95,6 +95,7 @@ print(
         sum([p.data.nelement() for p in model.parameters()])
     )
 )
+
 
 def test_accuracy(imgL, imgR, disp_true):
     model.eval()
@@ -152,16 +153,16 @@ def main():
 
     total = 0
     counter = 0
-    
+
     if args.test_accuracy:
         total = 0
-        
+
         for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(TestImgLoader):
             total += test_accuracy(imgL_crop, imgR_crop, disp_crop_L)
-            
-        print("Accuracy: ", str(total/len(test_left_img)))
+
+        print("Accuracy: ", str(total / len(test_left_img)))
         return
-        
+
     else:
         for idx in range(len(test_left_img)):
             imgL_o = Image.open(test_left_img[idx]).convert("RGB")
