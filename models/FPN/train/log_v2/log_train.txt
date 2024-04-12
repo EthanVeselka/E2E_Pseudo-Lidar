@@ -1,1 +1,2 @@
-Namespace(batch_size=24, decay_rate=0.5, decay_step=800000, gpu=0, learning_rate=0.001, log_dir='../train/log_v2', max_epoch=201, model='frustum_pointnets_v2', momentum=0.9, no_intensity=False, num_point=1024, optimizer='adam', restore_model_path=None)
+Namespace(batch_size=1, decay_rate=0.5, decay_step=800000, gpu=0, learning_rate=0.001, log_dir='../train/log_v2', max_epoch=2, model='frustum_pointnets_v2', momentum=0.9, no_intensity=False, num_point=50, optimizer='adam', restore_model_path=None)
+pid: 4622

@@ -34,6 +34,7 @@ def in_hull(p, hull):
 def extract_pc_in_box3d(pc, box3d):
     """pc: (N,3), box3d: (8,3)"""
     box3d_roi_inds = in_hull(pc[:, 0:3], box3d)
+    print("points in bb: ", pc[box3d_roi_inds, :].shape)
     return pc[box3d_roi_inds, :], box3d_roi_inds
 
 
@@ -210,6 +211,7 @@ def extract_frustum_data(
 
     pos_cnt = 0
     all_cnt = 0
+    cnt = 0
     for data_idx in data_idx_list:
         print("------------- ", data_idx)
         calib = dataset.get_calibration(data_idx)  # 3 by 4 matrix
@@ -246,8 +248,8 @@ def extract_frustum_data(
                     & (pc_image_coord[:, 1] >= ymin)
                 )
                 box_fov_inds = box_fov_inds & img_fov_inds
-                # print(box_fov_inds)
                 pc_in_box_fov = pc_rect[box_fov_inds, :]
+
                 # Get frustum angle (according to center pixel in 2D BOX)
                 box2d_center = np.array([(xmin + xmax) / 2.0, (ymin + ymax) / 2.0])
                 uvdepth = np.zeros((1, 3))
@@ -257,6 +259,7 @@ def extract_frustum_data(
                 frustum_angle = -1 * np.arctan2(
                     box2d_center_rect[0, 2], box2d_center_rect[0, 0]
                 )
+
                 # 3D BOX: Get pts velo in 3d box
                 obj = objects[obj_idx]
                 box3d_pts_2d, box3d_pts_3d = utils.compute_box_3d(obj, calib.P)
@@ -285,9 +288,11 @@ def extract_frustum_data(
                 # collect statistics
                 pos_cnt += np.sum(label)
                 all_cnt += pc_in_box_fov.shape[0]
+                cnt += len(input_list)
 
     print("Average pos ratio: %f" % (pos_cnt / float(all_cnt)))
     print("Average npoints: %f" % (float(all_cnt) / len(id_list)))
+    print("count: ", cnt)
 
     with open(output_filename, "wb") as fp:
         pickle.dump(id_list, fp)
@@ -618,6 +623,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Only generate cars; otherwise cars, peds and cycs",
     )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Only generate cars; otherwise cars, peds and cycs",
+    )
     args = parser.parse_args()
 
     if args.demo:
@@ -630,7 +640,7 @@ if __name__ == "__main__":
     elif args.carpedcyc_only:
         type_whitelist = ["Car", "Pedestrian", "Bicycle"]
         output_prefix = "frustum_carpedcyc_"
-    elif args.carpedcyc_only:
+    elif args.all:
         type_whitelist = [
             "Car",
             "Pedestrian",
@@ -646,7 +656,7 @@ if __name__ == "__main__":
         extract_frustum_data(
             os.path.join(BASE_DIR, "train.csv"),
             "training",
-            os.path.join(BASE_DIR, output_prefix + "train.pickle"),
+            os.path.join("../output", output_prefix + "train.pickle"),
             viz=False,
             perturb_box2d=True,
             augmentX=5,
@@ -657,7 +667,7 @@ if __name__ == "__main__":
         extract_frustum_data(
             os.path.join(BASE_DIR, "val.csv"),
             "training",
-            os.path.join(BASE_DIR, output_prefix + "val.pickle"),
+            os.path.join("../output", output_prefix + "val.pickle"),
             viz=False,
             perturb_box2d=False,
             augmentX=1,

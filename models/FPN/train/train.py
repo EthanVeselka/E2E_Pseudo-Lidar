@@ -95,8 +95,8 @@ MODEL_FILE = os.path.join(ROOT_DIR, "models", FLAGS.model + ".py")
 LOG_DIR = FLAGS.log_dir
 if not os.path.exists(LOG_DIR):
     os.mkdir(LOG_DIR)
-os.system("cp %s %s" % (MODEL_FILE, LOG_DIR))  # bkp of model def
-os.system("cp %s %s" % (os.path.join(BASE_DIR, "train.py"), LOG_DIR))
+# os.system("cp %s %s" % (MODEL_FILE, LOG_DIR))  # bkp of model def
+# os.system("cp %s %s" % (os.path.join(BASE_DIR, "train.py"), LOG_DIR))
 LOG_FOUT = open(os.path.join(LOG_DIR, "log_train.txt"), "w")
 LOG_FOUT.write(str(FLAGS) + "\n")
 

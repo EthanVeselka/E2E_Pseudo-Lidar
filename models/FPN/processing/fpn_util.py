@@ -28,9 +28,9 @@ class Object3d(object):
 
         # extract 2d bounding box in 0-based coordinates
         self.xmin = data[4]  # left
-        self.ymin = data[5]  # top
+        self.ymin = data[7]  # top
         self.xmax = data[6]  # right
-        self.ymax = data[7]  # bottom
+        self.ymax = data[5]  # bottom
         self.box2d = np.array([self.xmin, self.ymin, self.xmax, self.ymax])
 
         # extract 3d bounding box information
@@ -287,7 +287,7 @@ def load_velo_scan(velo_filename):
 
     # points = []
     # for line in lines:
-    #     values = line.split()[:3]  # Extract the first 3 values
+    #     values = line.split()[:4]  # Extract the first 4 values
 
     #     point = [float(value) for value in values]  # Convert values to floats
     #     points.append(point)
@@ -344,10 +344,11 @@ def compute_box_3d(obj, P):
     # rotate and translate 3d bounding box
     corners_3d = np.dot(R, np.vstack([x_corners, y_corners, z_corners]))
     # print corners_3d.shape
-    corners_3d[0, :] = corners_3d[0, :] + obj.t[0]
-    corners_3d[1, :] = corners_3d[1, :] + obj.t[1]
-    corners_3d[2, :] = corners_3d[2, :] + obj.t[2]
-    # print 'cornsers_3d: ', corners_3d
+    corners_3d[0, :] = corners_3d[0, :] + obj.t[1]
+    corners_3d[1, :] = corners_3d[1, :] + obj.t[2]
+    corners_3d[2, :] = corners_3d[2, :] + obj.t[0]
+
+    # print("corners_3d: ", np.transpose(corners_3d))
     # only draw 3d bounding box for objs in front of the camera
     if np.any(corners_3d[2, :] < 0.1):
         corners_2d = None
@@ -355,7 +356,7 @@ def compute_box_3d(obj, P):
 
     # project the 3d bounding box into the image plane
     corners_2d = project_to_image(np.transpose(corners_3d), P)
-    # print 'corners_2d: ', corners_2d
+
     return corners_2d, np.transpose(corners_3d)
 
 
