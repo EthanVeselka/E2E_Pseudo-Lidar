@@ -38,11 +38,13 @@ git clone https://github.com/01org/mkl-dnn.git
 cd mkl-dnn
 git checkout rls-v0.21
 cd scripts && ./prepare_mkl.sh && cd ..
-mkdir -p build && cd build && cmake .. && make
-make install DESTDIR=../../mkl
-cd ../../
+mkdir ../mkl
+cp -r external/mklml_lnx_2019.0.5.20190502/lib/ ../mkl/lib
+# mkdir -p build && cd build && cmake .. && make
+# make install DESTDIR=../../mkl
 
 # Add new dependencies to LD_LIBRARY_PATH
-cd ../
-echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$(pwd)/dependencies/mkl/usr/local/lib" >> "bin/activate"
+cd ../../
+chmod 777 bin/activate
+echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$(pwd)/dependencies/mkl/lib" >> "bin/activate"
 echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$(pwd)/dependencies/glibc_install/usr/local/lib" >> "bin/activate"
