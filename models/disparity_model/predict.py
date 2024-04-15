@@ -156,11 +156,15 @@ def main():
 
     if args.test_accuracy:
         total = 0
-
+        count = 0
+        
         for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(TestImgLoader):
-            total += test_accuracy(imgL_crop, imgR_crop, disp_crop_L)
-
-        print("Accuracy: ", str(total / len(test_left_img)))
+            curr = test_accuracy(imgL_crop, imgR_crop, disp_crop_L)
+            print("frame", count, "accuracy:", str(curr))
+            total += curr
+            count += 1
+            
+        print("Accuracy:", str(total/count), "over", str(count), "frames")
         return
 
     else:
