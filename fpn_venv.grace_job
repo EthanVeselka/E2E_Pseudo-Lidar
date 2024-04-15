@@ -20,6 +20,7 @@
 ##First Executable Line
 #
 module load CUDA/9.0.176
+module load cuDNN/7.0.5-CUDA-9.0.176
 module load GCC/6.4.0-2.28
 module load Python/3.6.4
 
