@@ -538,9 +538,9 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             # Store observation angle of object center to camera-x_axis
             centroid_location = camera_transform.transform(object_transform.location)
             bbox_elem_rel_loc = ET.SubElement(bbox_elem, "relative_center")
-            bbox_elem_rel_loc.set('x', str(centroid_location.x))
-            bbox_elem_rel_loc.set('y', str(centroid_location.y))
-            bbox_elem_rel_loc.set('z', str(centroid_location.z))
+            bbox_elem_rel_loc.set('x', str(centroid_location.y))
+            bbox_elem_rel_loc.set('y', str(centroid_location.z))
+            bbox_elem_rel_loc.set('z', str(centroid_location.x))
             ray_vector = np.array([centroid_location.x, centroid_location.z])
             obj_vector3D = camera_transform.transform_vector(object_transform.get_forward_vector())
             obj_vector = np.array([obj_vector3D.x, obj_vector3D.z])
