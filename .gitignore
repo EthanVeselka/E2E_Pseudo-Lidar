@@ -1,2 +1,3 @@
 *.pyc
 tests/
+dummy_config.ini
