@@ -108,8 +108,8 @@ def edit_config(key: str, value: str, file_path: str):
             value = float(value)
         except ValueError:
             raise argparse.ArgumentTypeError(f"Error: Value {value} must be a float.")
-        if value < 0:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be non-negative.")
+        if value <= 0:
+            raise argparse.ArgumentTypeError(f"Error: Value {value} must be greater than zero.")
         
         configs["Settings"]["poll_rate"] = str(value)
 
@@ -148,5 +148,5 @@ def edit_config(key: str, value: str, file_path: str):
     with open(out_file_path, "w") as f:
         configs.write(f)
 
-    print(f"Key {key} updated to {value} in {out_file_path}.")
+    print(f"Key {key} updated to {value} in {out_file_path}.\n")
     return
