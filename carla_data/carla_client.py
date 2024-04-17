@@ -1258,10 +1258,11 @@ def match_dynamic_static(dynamic_objects, static_objects, dynamic_tree_root):
             for child in object:
                 bbox_elem.append(child)
                         
-            #dynamic_tree_root.remove(dynamic_object)
-            
             # mark previous box for comparison to new one
-            dynamic_object.set('moved','True')
+            if DEBUG_ON:
+                dynamic_object.set('moved','True')
+            else:
+                dynamic_tree_root.remove(dynamic_object)
 
 def move_unmatched_static(static_objects, static_tree, occlude_tree_root):
     for object in static_objects:
