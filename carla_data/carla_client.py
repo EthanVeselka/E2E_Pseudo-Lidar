@@ -44,6 +44,7 @@ MAP = conf["External Variables"]["MAP"]
 
 FILES_PER_FRAME = 6
 DEBUG_ON = False
+
 output_path = ''
 
 position_dict = {}
@@ -327,7 +328,6 @@ def save_boxes(world, sample_path, transform, frame_num):
         for bb in new_bbs:
             bounding_box_set.append((obj, bb))
 
-    huh = 0
     for label, bb in bounding_box_set:
         
         # Filter for distance from ego vehicle
@@ -345,12 +345,6 @@ def save_boxes(world, sample_path, transform, frame_num):
                 bbox_elem = ET.SubElement(root, "BoundingBox")
                 bbox_elem.set("class", str(label))
                 save_box(bb, bbox_elem, camera_transform, world_2_camera)
-                if bb.location.distance(camera_transform.location) > 50:
-                    if huh % 100 == 0:
-                        print(bb.location.distance(camera_transform.location))
-                    huh += 1
-    if DEBUG_ON:
-        print('frame:', frame_num, 'huh:', huh)
 
     # Save the bounding boxes in the scene
     filename = 'static_bbs.xml'
@@ -469,7 +463,6 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
         
         root = ET.Element("DynamicBoundingBoxes")
         tree = ET.ElementTree(root)
-        huh = 0
 
         for actor_id in actor_set:
             actor = actors.find(actor_id)
@@ -515,12 +508,6 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             object_transform = bb_transform_dict[actor_id][1]
 
             save_box(bb, bbox_elem, camera_transform, world_2_camera, object_transform)
-
-            if bb.location.distance(camera_transform.location) > 50:
-                huh += 1
-                #print('DYNAMIC bbox is too far frame:', data.frame)
-        if DEBUG_ON:
-            print('DYNAMIC frame:', data.frame, 'huh:', huh)
         
         # Save the bounding boxes in the scene
         filename = 'dynamic_bbs.xml'

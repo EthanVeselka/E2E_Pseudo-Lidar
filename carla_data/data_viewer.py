@@ -141,8 +141,6 @@ def view_image(display, image_path, frame_num, bbs, bb_class, dynamic_classes, f
             else:
                 for child in bb:
                     title = child.tag
-                    if bb.attrib['class'] == 'Car':
-                        print('HERE CAR')   
                     if title.startswith('edge'):
                         color = (0,255,0)
                         if 'moved' in bb.attrib:
