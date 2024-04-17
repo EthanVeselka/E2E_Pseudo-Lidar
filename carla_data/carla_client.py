@@ -18,7 +18,7 @@ import shutil
 from math import tan, pi, acos
 from kitti_utils import write_episode_kitti
 import copy
-    
+
 from agents.navigation.behavior_agent import BehaviorAgent 
 from agents.navigation.basic_agent import BasicAgent  
 from agents.navigation.constant_velocity_agent import ConstantVelocityAgent  
@@ -43,6 +43,7 @@ WEATHER = int(conf["External Variables"]["WEATHER"])
 MAP = conf["External Variables"]["MAP"]
 
 FILES_PER_FRAME = 6
+DEBUG_ON = False
 output_path = ''
 
 position_dict = {}
@@ -161,17 +162,18 @@ def save_calibration_mats(p0, p1):
 
 def save_box(bb, bbox_elem, sensor_transform, world_2_camera, object_transform = None):
 
-                verts = [v for v in bb.get_world_vertices(carla.Transform())]
+                
                 edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
 
                 K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
 
                 is_dynamic = True
                 if object_transform is None:
-                    object_transform = bb
+                    object_transform = carla.Transform()
                     is_dynamic = False
 
-                p1 = get_image_point(bb.location, K, world_2_camera)
+                verts = [v for v in bb.get_world_vertices(object_transform)]
+
                 x_max = -10000
                 x_min = 10000
                 y_max = -10000
@@ -278,7 +280,6 @@ def save_boxes(world, sample_path, transform, frame_num):
     root = ET.Element("StaticBoundingBoxes")
     tree = ET.ElementTree(root)
     #bbs = world.world.get_level_bbs(carla.CityObjectLabel.Car)
-    transform = transform
     #print('looking for:', frame_num)
     
     
@@ -326,24 +327,30 @@ def save_boxes(world, sample_path, transform, frame_num):
         for bb in new_bbs:
             bounding_box_set.append((obj, bb))
 
+    huh = 0
     for label, bb in bounding_box_set:
         
         # Filter for distance from ego vehicle
-        if bb.location.distance(transform.location) < 50:
+        if bb.location.distance(camera_transform.location) < 50:
 
             # Calculate the dot product between the forward vector
             # of the vehicle and the vector between the vehicle
             # and the bounding box. We threshold this dot product
             # to limit to drawing bounding boxes IN FRONT OF THE CAMERA
-            forward_vec = transform.get_forward_vector()
-            ray = bb.location - transform.location
+            forward_vec = camera_transform.get_forward_vector()
+            ray = bb.location - camera_transform.location
             
             if forward_vec.dot(ray) > 1:
                 # save the box
                 bbox_elem = ET.SubElement(root, "BoundingBox")
                 bbox_elem.set("class", str(label))
                 save_box(bb, bbox_elem, camera_transform, world_2_camera)
-                    
+                if bb.location.distance(camera_transform.location) > 50:
+                    if huh % 100 == 0:
+                        print(bb.location.distance(camera_transform.location))
+                    huh += 1
+    if DEBUG_ON:
+        print('frame:', frame_num, 'huh:', huh)
 
     # Save the bounding boxes in the scene
     filename = 'static_bbs.xml'
@@ -462,7 +469,8 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
         
         root = ET.Element("DynamicBoundingBoxes")
         tree = ET.ElementTree(root)
-        
+        huh = 0
+
         for actor_id in actor_set:
             actor = actors.find(actor_id)
             
@@ -507,6 +515,12 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
             object_transform = bb_transform_dict[actor_id][1]
 
             save_box(bb, bbox_elem, camera_transform, world_2_camera, object_transform)
+
+            if bb.location.distance(camera_transform.location) > 50:
+                huh += 1
+                #print('DYNAMIC bbox is too far frame:', data.frame)
+        if DEBUG_ON:
+            print('DYNAMIC frame:', data.frame, 'huh:', huh)
         
         # Save the bounding boxes in the scene
         filename = 'dynamic_bbs.xml'
@@ -700,12 +714,17 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
         s_lidar = None
         main_cam = sensors[0]
         
-        while num_ticks < 2000:
+        while num_ticks < 200:
             clock.tick()
            
             if not args.asynch:
                 
                 position_dict[num_ticks] = main_cam.get_transform()
+                if num_ticks >= 1:
+                    if position_dict[num_ticks-1].location == position_dict[num_ticks].location:
+                        #print('is still')
+                        pass
+
                 #print(position_dict.keys())
                 world.world.tick()
                 
@@ -1240,6 +1259,7 @@ def match_dynamic_static(dynamic_objects, static_objects, dynamic_tree_root):
                 bbox_elem.append(child)
                         
             #dynamic_tree_root.remove(dynamic_object)
+            
             # mark previous box for comparison to new one
             dynamic_object.set('moved','True')
 
