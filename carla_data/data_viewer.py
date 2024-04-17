@@ -131,6 +131,7 @@ def view_image(display, image_path, frame_num, bbs, bb_class, dynamic_classes, f
                 x_max = float(twoD_bb.attrib['xMax'])
                 y_min = float(twoD_bb.attrib['yMin'])
                 y_max = float(twoD_bb.attrib['yMax'])
+
                     
                 pygame.draw.line(imp, (0,255,0), (x_min, y_min), (x_max, y_min))
                 pygame.draw.line(imp, (0,255,0), (x_min, y_max), (x_max, y_max))
@@ -140,10 +141,13 @@ def view_image(display, image_path, frame_num, bbs, bb_class, dynamic_classes, f
                 for child in bb:
                     title = child.tag
                     if title.startswith('edge'):
+                        color = (0,255,0)
+                        if 'moved' in bb.attrib:
+                            color = (255,0,0)
                         #print('startpos:', (child.attrib['x1'], child.attrib['y1']))
                         start_pos = (float(child.attrib['x1']), float(child.attrib['y1']))
                         end_pos = (float(child.attrib['x2']), float(child.attrib['y2']))
-                        pygame.draw.line(imp, (0,255,0), start_pos, end_pos, width=5)
+                        pygame.draw.line(imp, color, start_pos, end_pos, width=5)
 
     
 
