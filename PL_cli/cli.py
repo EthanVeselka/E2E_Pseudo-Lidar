@@ -11,11 +11,11 @@ def main():
     while True:
         command = click.prompt("\nEnter a command (type 'exit' to quit)")
 
-        if command == 'exit':
+        if command == "exit":
             click.echo("Exiting...")
             break
 
-        if command == 'help':
+        if command == "help":
             click.echo("")
             click.echo("edit: Edit a configuration file")
             click.echo("run : Run a script")
@@ -24,11 +24,11 @@ def main():
             click.echo("exit: Close the CLI")
             continue
 
-        if command == 'edit':
+        if command == "edit":
             option = ""
-            while option not in ["help", "data collection", "sampling", "cancel"]:
+            while option not in ["data collection", "sampling", "cancel"]:
                 option = click.prompt("Which config file would you like to edit? (Data collection / Sampling / Cancel)", type=str).lower()
-                if option == 'cancel':
+                if option == "cancel":
                     break
 
             if option == "help":
@@ -43,7 +43,7 @@ def main():
             while True:
                 key = click.prompt("Enter the key to modify, or enter 'done' to stop")
 
-                if key == 'done':
+                if key == "done":
                     break
 
                 file_path = ""
@@ -79,15 +79,14 @@ def main():
             continue
      
         if command == "run":
-            click.echo("Which script would you like to run?")
             option = ""
-            while option not in ["help", "data collection", "sampling", "cancel"]:
+            while option not in ["data collection", "sampling", "cancel"]:
                 option = click.prompt("Which script would you like to run? (Data collection / Cancel)", type=str).lower()
-                if option == 'cancel':
+                if option == "cancel":
                     break
 
                 if option == "help":
-                    click.echo("Options: data collection, sampling, cancel")
+                    click.echo("Options: Data collection, Cancel")
                     continue
 
                 if option == "data collection":
@@ -101,7 +100,6 @@ def main():
 
                     break
 
-            continue
 
 # @click.command()
 # @click.option("--key", type=str, help="The key to modify. Options: data_path, ego_behavior, external_behavior, weather, map, all, splits, sample_size, carla_python_path, poll_rate, camera_x, camera_y, camera_fov")

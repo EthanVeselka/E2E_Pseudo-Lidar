@@ -15,7 +15,7 @@ def edit_config(key: str, value: str, file_path: str):
         elif value in false_values:
             configs["General"]["all"] = str(False)
         else:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be a boolean.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be a boolean.")
 
     # input validation for "splits" key
     elif key == "splits" and "General" in configs:
@@ -24,14 +24,14 @@ def edit_config(key: str, value: str, file_path: str):
             values = tuple(map(float, value.strip('()').split(',')))
             # Check if tuple has three values
             if len(values) != 3:
-                raise ValueError(f"Error: Tuple {values} must have three values. Must include parentheses and commas.")
+                raise ValueError(f"Tuple {values} must have three values. Must include parentheses and commas.")
             # Check if values are between 0 and 1
             for v in values:
                 if v < 0 or v > 1:
-                    raise ValueError(f"Error: Value {v} must be between 0 and 1.")
+                    raise ValueError(f"Value {v} must be between 0 and 1.")
             # Check if values sum to 1 within 1e-6
             if sum(values) - 1 > 1e-6:
-                raise ValueError(f"Error: Values {values} must sum to 1.")
+                raise ValueError(f"Values {values} must sum to 1.")
         except ValueError as e:
             raise argparse.ArgumentTypeError(str(e))
         
@@ -42,9 +42,9 @@ def edit_config(key: str, value: str, file_path: str):
         try:
             value = int(value)
         except ValueError:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be an integer.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be an integer.")
         if value < 10:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be at least 10.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be at least 10.")
         # TODO: Add a check for the maximum value of sample_size
         # TODO: Add a way to use all frames
 
@@ -53,14 +53,14 @@ def edit_config(key: str, value: str, file_path: str):
     # input validation for "data_path" key
     elif key == "data_path" and "Paths" in configs:
         if not os.path.exists(value):
-            raise argparse.ArgumentTypeError(f"Error: Path to {value} not found.")
+            raise argparse.ArgumentTypeError(f"Path to {value} not found.")
         
         configs["Paths"]["data_path"] = value
 
     # input validation for "carla_python_path" key
     elif key == "carla_python_path" and "Paths" in configs:
         if not os.path.exists(value):
-            raise argparse.ArgumentTypeError(f"Error: Path to {value} not found.")
+            raise argparse.ArgumentTypeError(f"Path to {value} not found.")
         
         configs["Paths"]["carla_python_path"] = value
 
@@ -68,7 +68,7 @@ def edit_config(key: str, value: str, file_path: str):
     elif key == "ego_behavior" and "Internal Variables" in configs:
         value = value.lower()
         if value not in ["normal", "aggressive", "cautious"]:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be 'normal', 'aggressive', or 'cautious'.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be 'normal', 'aggressive', or 'cautious'.")
 
         configs["Internal Variables"]["ego_behavior"] = value
 
@@ -76,7 +76,7 @@ def edit_config(key: str, value: str, file_path: str):
     elif key == "external_behavior" and "External Variables" in configs:
         value = value.lower()
         if value not in ["normal", "aggressive", "cautious"]:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be 'normal', 'aggressive', or 'cautious'.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be 'normal', 'aggressive', or 'cautious'.")
 
         configs["External Variables"]["external_behavior"] = value
 
@@ -86,10 +86,10 @@ def edit_config(key: str, value: str, file_path: str):
         try:
             value = int(value)
         except ValueError:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be an integer.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be an integer.")
         # must be 1, 2, 5, 8, 9, or 12
         if int(value) not in [1, 2, 5, 8, 9, 12]:
-            raise argparse.ArgumentTypeError(f"Error: Weather value must be 1, 2, 5, 8, 9, or 12.")
+            raise argparse.ArgumentTypeError(f"Weather value must be 1, 2, 5, 8, 9, or 12.")
         
         configs["External Variables"]["weather"] = str(value)
 
@@ -98,7 +98,7 @@ def edit_config(key: str, value: str, file_path: str):
         value = value.capitalize()
         # must be "Town01", "Town02", "Town07"
         if value not in ["Town01", "Town02", "Town07"]:
-            raise argparse.ArgumentTypeError(f"Error: Map must be 'Town01', 'Town02', or 'Town07'.")
+            raise argparse.ArgumentTypeError(f"Map must be 'Town01', 'Town02', or 'Town07'.")
 
         configs["External Variables"]["map"] = value
 
@@ -107,9 +107,9 @@ def edit_config(key: str, value: str, file_path: str):
         try:
             value = float(value)
         except ValueError:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be a float.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be a float.")
         if value <= 0:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be greater than zero.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be greater than zero.")
         
         configs["Settings"]["poll_rate"] = str(value)
 
@@ -118,7 +118,7 @@ def edit_config(key: str, value: str, file_path: str):
         try:
             value = int(value)
         except ValueError:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be an integer.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be an integer.")
         
         configs["Settings"]["camera_x"] = str(value)
 
@@ -127,7 +127,7 @@ def edit_config(key: str, value: str, file_path: str):
         try:
             value = int(value)
         except ValueError:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be an integer.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be an integer.")
         
         configs["Settings"]["camera_y"] = str(value)
 
@@ -136,12 +136,12 @@ def edit_config(key: str, value: str, file_path: str):
         try:
             value = int(value)
         except ValueError:
-            raise argparse.ArgumentTypeError(f"Error: Value {value} must be an integer.")
+            raise argparse.ArgumentTypeError(f"Value {value} must be an integer.")
         
         configs["Settings"]["camera_fov"] = str(value)
 
     else:
-        raise argparse.ArgumentTypeError(f"Error: Key {key} not found.")
+        raise argparse.ArgumentTypeError(f"Key {key} not found.")
 
     # write the new config file
     out_file_path = file_path
