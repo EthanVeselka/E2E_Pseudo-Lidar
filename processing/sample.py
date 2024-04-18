@@ -4,7 +4,6 @@ import torch
 import numpy as np
 import configparser
 from ast import literal_eval
-import sys
 
 BASE_DIR = ".."
 # sys.path.append(BASE_DIR)
@@ -33,17 +32,16 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
     SPLITS = conf["General"]["SPLITS"]
     SAMPLE_SIZE = conf["General"]["SAMPLE_SIZE"]
     DATA_PATH = conf["Paths"]["DATA_PATH"]
-    EGO_BEHAVIOR = conf["Internal Variables"]["EGO_BEHAVIOR"]
-    EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
-    WEATHER = conf["External Variables"]["WEATHER"]
-    MAP = conf["External Variables"]["MAP"]
+    EGO_BEHAVIOR = [v.strip() for v in conf["Internal Variables"]["EGO_BEHAVIOR"].split(',')]
+    EXTERNAL_BEHAVIOR = [v.strip() for v in conf["External Variables"]["EXTERNAL_BEHAVIOR"].split(',')]
+    WEATHER = [int(v.strip()) for v in conf["External Variables"]["WEATHER"].split(',')]
+    MAP = [v.strip() for v in conf["External Variables"]["MAP"].split(',')]
 
     DATA_PATH = os.path.join(os.getcwd(), BASE_DIR, DATA_PATH)
     SPLITS = literal_eval(SPLITS)
     # SPLITS = [float(x) for x in SPLITS]
     SAMPLE_SIZE = int(SAMPLE_SIZE)
-    WEATHER = int(WEATHER)
-
+    
     # Check values
     try:
         assert ALL in ["True", "False"]
@@ -63,8 +61,6 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
     for episode in os.listdir(DATA_PATH):
         if episode == ".gitignore":
             continue
-        if episode == "left_rgb_mat.csv":
-            continue
         if episode == "calibmatrices.txt":
             continue
         os.chdir(episode)
@@ -72,7 +68,7 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
         ep_conf = configparser.ConfigParser()
         ep_conf.read(os.path.join(curr_dir, config))
         ego_behav = ep_conf["Internal Variables"]["EGO_BEHAVIOR"]
-        if not ALL and not (ego_behav == EGO_BEHAVIOR):
+        if not ALL and not (ego_behav in EGO_BEHAVIOR):
             os.chdir(DATA_PATH)
             continue
 
@@ -95,9 +91,9 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
 
                 if ALL or (
                     it_conf["External Variables"]["EXTERNAL_BEHAVIOR"]
-                    == EXTERNAL_BEHAVIOR
-                    and it_conf["External Variables"]["WEATHER"] == WEATHER
-                    and it_conf["External Variables"]["MAP"] == MAP
+                    in EXTERNAL_BEHAVIOR
+                    and it_conf["External Variables"]["WEATHER"] in WEATHER
+                    and it_conf["External Variables"]["MAP"] in MAP
                 ):
                     frames.extend(
                         [
@@ -108,7 +104,7 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
                     )
 
     # randomly sample indices from directories
-    # print(range(len(frames)), curr_dir)
+    assert len(frames) >= SAMPLE_SIZE
     random_indices = random.sample(range(len(frames)), SAMPLE_SIZE)
     random.shuffle(random_indices)
 
@@ -119,22 +115,22 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
     val = random_indices[train_len : train_len + val_len]
     test = random_indices[train_len + val_len :]
 
+    print(f"Wrote {len(train)} samples to train.csv")
     file = open(save_file_path + "/train.csv", "w")
     for idx in train:
         file.write(list_dir + "/" + frames[idx] + "\n")
     file.close()
 
-    if len(val) != 0:
-        file = open(save_file_path + "/val.csv", "w")
-        for idx in val:
-            file.write(list_dir + "/" + frames[idx] + "\n")
-        file.close()
-
+    print(f"Wrote {len(val)} samples to val.csv")
+    file = open(save_file_path + "/val.csv", "w")
+    for idx in val:
+        file.write(list_dir + "/" + frames[idx] + "\n")
+    file.close()
+    
+    print(f"Wrote {len(test)} samples to test.csv")
     file = open(save_file_path + "/test.csv", "w")
     for idx in test:
         file.write(list_dir + "/" + frames[idx] + "\n")
     file.close()
-
-    os.chdir("../../../../..")
 
     return save_file_path

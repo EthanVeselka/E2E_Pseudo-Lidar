@@ -9,7 +9,7 @@ sys.path.append("../..")
 BASE_DIR = "../.."
 import processing.pseudo_lidar.calib_utils as calib_utils
 
-# Generates psuedo-lidar point clouds from disparity | depth-map, used for Lidar 3-D bb pred #
+# Generates psuedo-lidar point clouds from disparity | depth-map, used for Lidar 3D bb pred #
 
 
 def project_disp_to_points(calib, disp, max_high):

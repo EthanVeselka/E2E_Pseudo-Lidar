@@ -1,9 +1,6 @@
-import sys
 import argparse
-
-sys.path.append("..")
-from processing import sample, utils
-from processing.pseudo_lidar import PLDataset as pld
+import sample 
+import utils
 from processing.pseudo_lidar import generate_disp as gd
 
 
