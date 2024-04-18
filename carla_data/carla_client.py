@@ -79,6 +79,15 @@ def get_image_point(loc, K, w2c):
 
         return point_img[0:2]
 
+def get_camera_point(loc, w2c):
+        # Format the input coordinate (loc is a carla.Position object)
+        point = np.array([loc.x, loc.y, loc.z, 1])
+        # transform to camera coordinates
+        point_camera = np.dot(w2c, point)
+
+        point_camera = [point_camera[1], -point_camera[2], point_camera[0]]
+
+        return point_camera
 
 def indent(elem, level=0):
     i = "\n" + level*"  "
@@ -232,12 +241,12 @@ def save_box(bb, bbox_elem, sensor_transform, world_2_camera, object_transform =
                 bbox_elem_rel.set('roll', str(object_transform.rotation.roll - sensor_transform.rotation.pitch))
 
                 # Store location of bb center relative to sensor
-                centroid_location = sensor_transform.transform(object_transform.location)
+                centroid_location = get_camera_point(object_transform.location, world_2_camera)
                 bbox_elem_rel_loc = ET.SubElement(bbox_elem, "relative_center")
-                bbox_elem_rel_loc.set('x', str(centroid_location.y))
-                bbox_elem_rel_loc.set('y', str(centroid_location.z))
-                bbox_elem_rel_loc.set('z', str(centroid_location.x))
-                ray_vector = np.array([centroid_location.x, centroid_location.z])
+                bbox_elem_rel_loc.set('x', str(centroid_location[0]))
+                bbox_elem_rel_loc.set('y', str(centroid_location[1]))
+                bbox_elem_rel_loc.set('z', str(centroid_location[2]))
+                ray_vector = np.array([centroid_location[0], centroid_location[2]])
 
                 # Store observation angle of object center to camera-x_axis
                 forward_vec = bb.rotation.get_forward_vector()

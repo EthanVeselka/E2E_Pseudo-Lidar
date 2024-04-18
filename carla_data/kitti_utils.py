@@ -17,6 +17,7 @@ def write_episode_kitti(output_path):
         'Bicycle' : 'Bicycle',
         'Motorcycle' : 'Motorcycle',
         'TrafficLight' : 'TrafficLight',
+        'TrafficSigns' : 'TrafficSigns',
         'Vehicle' : 'Vehicle',
         'TrafficSign' : 'TrafficSign',
         'Walker' : 'Walker'
