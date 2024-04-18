@@ -15,8 +15,10 @@ import xml.etree.ElementTree as ET
 import configparser
 import threading
 import shutil
-from math import tan, pi
-    
+from math import tan, pi, acos
+from kitti_utils import write_episode_kitti
+import copy
+
 from agents.navigation.behavior_agent import BehaviorAgent 
 from agents.navigation.basic_agent import BasicAgent  
 from agents.navigation.constant_velocity_agent import ConstantVelocityAgent  
@@ -28,7 +30,6 @@ CARLA_PYTHON_PATH = conf["Paths"]["CARLA_PYTHON_PATH"]
 if CARLA_PYTHON_PATH not in sys.path:
     sys.path.insert(0,CARLA_PYTHON_PATH)
     
-CARLA_PYTHON_PATH = conf["Paths"]["CARLA_PYTHON_PATH"]
 DATA_PATH = conf["Paths"]["DATA_PATH"]
 
 POLL_RATE = float(conf["Settings"]["POLL_RATE"])
@@ -42,6 +43,8 @@ WEATHER = int(conf["External Variables"]["WEATHER"])
 MAP = conf["External Variables"]["MAP"]
 
 FILES_PER_FRAME = 6
+DEBUG_ON = False
+
 output_path = ''
 
 position_dict = {}
@@ -76,6 +79,15 @@ def get_image_point(loc, K, w2c):
 
         return point_img[0:2]
 
+def get_camera_point(loc, w2c):
+        # Format the input coordinate (loc is a carla.Position object)
+        point = np.array([loc.x, loc.y, loc.z, 1])
+        # transform to camera coordinates
+        point_camera = np.dot(w2c, point)
+
+        point_camera = [point_camera[1], -point_camera[2], point_camera[0]]
+
+        return point_camera
 
 def indent(elem, level=0):
     i = "\n" + level*"  "
@@ -131,13 +143,144 @@ def build_calibration_mat(values):
     matrix = np.linalg.inv(matrix)
     
     P = K @ flip @ matrix[:3, :]
-    print('K')
-    print(K)
-    print('mat')
-    print(matrix)
-    print('P')
-    print(P)
     return P
+
+def save_calibration_mats(p0, p1):
+
+    def write_mat(mat, dest):
+        for row in mat:
+            for elem in row:
+                dest.write(str(elem) + ' ')
+            dest.write('\n')
+
+
+    r0 = np.identity(3)
+    
+    TR_velodyne = np.array([[0, -1, 0],
+                            [0, 0, -1],
+                            [1, 0, 0]])
+    TR_velodyne = np.column_stack((TR_velodyne, np.array([0, 0, 0])))
+    with open(os.path.join(DATA_PATH, "calibmatrices.txt"), 'w') as dest:
+        dest.write('P0:\n')
+        write_mat(p0, dest)
+        dest.write('P1:\n')
+        write_mat(p1, dest)
+        dest.write('R0_rect:\n')
+        write_mat(r0, dest)
+        dest.write('tr_velodyne_to_cam:\n')
+        write_mat(TR_velodyne, dest)
+
+def save_box(bb, bbox_elem, sensor_transform, world_2_camera, object_transform = None):
+
+                
+                edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
+
+                K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
+
+                is_dynamic = True
+                if object_transform is None:
+                    object_transform = carla.Transform()
+                    is_dynamic = False
+
+                verts = [v for v in bb.get_world_vertices(object_transform)]
+
+                x_max = -10000
+                x_min = 10000
+                y_max = -10000
+                y_min = 10000
+                for vert in verts:
+                    p = get_image_point(vert, K, world_2_camera)
+                    if p[0] > x_max:
+                        x_max = p[0]
+                    if p[0] < x_min:
+                        x_min = p[0]
+                    if p[1] > y_max:
+                        y_max = p[1]
+                    if p[1] < y_min:
+                        y_min = p[1]
+
+                # Add the object to the frame (ensure it is inside the image)
+                on_screen = ET.SubElement(bbox_elem, "on_screen")
+                if not (x_min > 0 and x_max < CAMERA_X and y_min > 0 and y_max < CAMERA_Y):
+                    on_screen.set('on_screen', 'true')
+                else:
+                    on_screen.set('on_screen', 'false')
+
+                # Store center of object
+                bbox_elem_center = ET.SubElement(bbox_elem, "center")
+                bbox_elem_center.set("x", str(bb.location.x))
+                bbox_elem_center.set("y", str(bb.location.y))
+                bbox_elem_center.set("z", str(bb.location.z))
+
+                # Store bb verticies in camera-space
+                bbox_elem_verts = ET.SubElement(bbox_elem, "verts")
+                camera_verts = [v for v in bb.get_world_vertices(sensor_transform)]
+                for i in range(len(verts)):
+                    vert = camera_verts[i]
+                    elem_vert = ET.SubElement(bbox_elem_verts, "v" + str(i))
+                    elem_vert.set("x", str(vert.x))
+                    elem_vert.set("y", str(vert.y))
+                    elem_vert.set("z", str(vert.z))
+                
+                # Store shape of bb
+                bbox_elem_shape = ET.SubElement(bbox_elem, "shape")
+                bbox_elem_shape.set('x', str(bb.extent.x * 2))
+                bbox_elem_shape.set('y', str(bb.extent.y * 2))
+                bbox_elem_shape.set('z', str(bb.extent.z * 2))
+
+                # Store world orientation of bb
+                bbox_elem_rot = ET.SubElement(bbox_elem, "word_orientation")
+                bbox_elem_rot.set('pitch', str(object_transform.rotation.pitch))
+                bbox_elem_rot.set('yaw', str(object_transform.rotation.yaw))
+                bbox_elem_rot.set('roll', str(object_transform.rotation.roll))
+
+                # Store orientation of bb relative to camera
+                bbox_elem_rel = ET.SubElement(bbox_elem, "relative_orientation")
+                bbox_elem_rel.set('pitch', str(object_transform.rotation.pitch - sensor_transform.rotation.pitch))
+                bbox_elem_rel.set('yaw', str(object_transform.rotation.yaw - sensor_transform.rotation.pitch))
+                bbox_elem_rel.set('roll', str(object_transform.rotation.roll - sensor_transform.rotation.pitch))
+
+                # Store location of bb center relative to sensor
+                obj_location = bb.location
+                if is_dynamic:
+                    obj_location = object_transform.location
+                centroid_location = get_camera_point(obj_location, world_2_camera)
+                bbox_elem_rel_loc = ET.SubElement(bbox_elem, "relative_center")
+                bbox_elem_rel_loc.set('x', str(centroid_location[0]))
+                bbox_elem_rel_loc.set('y', str(centroid_location[1]))
+                bbox_elem_rel_loc.set('z', str(centroid_location[2]))
+                ray_vector = np.array([centroid_location[0], centroid_location[2]])
+
+                # Store observation angle of object center to camera-x_axis
+                forward_vec = bb.rotation.get_forward_vector()
+                if is_dynamic:
+                    forward_vec = object_transform.get_forward_vector()
+                obj_vector3D = sensor_transform.transform_vector(forward_vec)
+                obj_vector = np.array([obj_vector3D.x, obj_vector3D.z])
+                angle = acos(np.dot(ray_vector, obj_vector) / np.linalg.norm(ray_vector) * np.linalg.norm(obj_vector))
+                bbox_elem_center = bbox_elem_rel.set('observation_angle', str(angle))
+                
+                # Store 2D Box values
+                bbox_elem_2d_box = ET.SubElement(bbox_elem, "Box2d")
+                bbox_elem_2d_box.set("xMin", str(x_min))
+                bbox_elem_2d_box.set("xMax", str(x_max))
+                bbox_elem_2d_box.set("yMin", str(y_min))
+                bbox_elem_2d_box.set("yMax", str(y_max))
+                
+                counter = 0
+                for edge in edges:
+                    # Join the vertices into edges
+                    p1 = get_image_point(verts[edge[0]], K, world_2_camera)
+                    p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
+                    
+                    bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
+                    
+                    bbox_elem_edge.set("x1", str(p1[0]))
+                    bbox_elem_edge.set("y1", str(p1[1]))
+                    bbox_elem_edge.set("x2", str(p2[0]))
+                    bbox_elem_edge.set("y2", str(p2[1]))
+                    
+                    counter += 1
 
             
 def save_boxes(world, sample_path, transform, frame_num):
@@ -150,26 +293,21 @@ def save_boxes(world, sample_path, transform, frame_num):
     root = ET.Element("StaticBoundingBoxes")
     tree = ET.ElementTree(root)
     #bbs = world.world.get_level_bbs(carla.CityObjectLabel.Car)
-    transform = transform
     #print('looking for:', frame_num)
-    new_frame = 0
-    found_frame = False
     
     
-    saved_frame_num = frame_num-first_data_frame+1
+    camera_transform = transform
+    # get accurate camera position from position_dict
     for i in range(2):
-        if first_data_frame is not None and saved_frame_num in position_dict:
-            transform = position_dict[saved_frame_num]
-            found_frame = True
-            break
-        else:
-            #print('frame missed:', frame_num)
-            #print('keys:', position_dict.keys())
+        try:
+            saved_frame_num = frame_num - first_data_frame+1
+            if first_data_frame is not None and saved_frame_num in position_dict:
+                camera_transform = position_dict[saved_frame_num]
+                break
+            else:
+                time.sleep(1)
+        except:
             time.sleep(1)
-    
-
-    if not found_frame:
-        print('frame oofed:', frame_num)
             
     #print(bounding_box_set)
     
@@ -192,88 +330,33 @@ def save_boxes(world, sample_path, transform, frame_num):
         carla.CityObjectLabel.TrafficLight,
         carla.CityObjectLabel.TrafficSigns,
         ]
-
+        
     
-    world_2_camera = np.array(transform.get_inverse_matrix())
-    edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
-    K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
+    world_2_camera = np.array(camera_transform.get_inverse_matrix())
     bounding_box_set = []
     
     for obj in filters:
         new_bbs = world.world.get_level_bbs(obj)
         for bb in new_bbs:
             bounding_box_set.append((obj, bb))
-    count = 0
+
     for label, bb in bounding_box_set:
         
         # Filter for distance from ego vehicle
-        if bb.location.distance(transform.location) < 50:
+        if bb.location.distance(camera_transform.location) < 50:
 
             # Calculate the dot product between the forward vector
             # of the vehicle and the vector between the vehicle
             # and the bounding box. We threshold this dot product
             # to limit to drawing bounding boxes IN FRONT OF THE CAMERA
-            forward_vec = transform.get_forward_vector()
-            ray = bb.location - transform.location
+            forward_vec = camera_transform.get_forward_vector()
+            ray = bb.location - camera_transform.location
             
             if forward_vec.dot(ray) > 1:
-                # Cycle through the vertices
+                # save the box
                 bbox_elem = ET.SubElement(root, "BoundingBox")
                 bbox_elem.set("class", str(label))
-                verts = [v for v in bb.get_world_vertices(carla.Transform())]
-                counter = 0
-                
-                p1 = get_image_point(bb.location, K, world_2_camera)
-                x_max = -10000
-                x_min = 10000
-                y_max = -10000
-                y_min = 10000
-                for vert in verts:
-                    p = get_image_point(vert, K, world_2_camera)
-                    if p[0] > x_max:
-                        x_max = p[0]
-                    if p[0] < x_min:
-                        x_min = p[0]
-                    if p[1] > y_max:
-                        y_max = p[1]
-                    if p[1] < y_min:
-                        y_min = p[1]
-
-                # Add the object to the frame (ensure it is inside the image)
-                on_screen = ET.SubElement(bbox_elem, "on_screen")
-                count += 1
-                if not (x_min > 0 and x_max < CAMERA_X and y_min > 0 and y_max < CAMERA_Y):
-                    on_screen.set('on_screen', 'true')
-                else:
-                    on_screen.set('on_screen', 'false')
-                    
-                # Store center of object
-                bbox_elem_center = ET.SubElement(bbox_elem, "center")
-                bbox_elem_center.set("x", str(bb.location.x))
-                bbox_elem_center.set("y", str(bb.location.y))
-                bbox_elem_center.set("z", str(bb.location.z))
-                
-                # Store 2D Box values
-                bbox_elem_2d_box = ET.SubElement(bbox_elem, "Box2d")
-                bbox_elem_2d_box.set("xMin", str(x_min))
-                bbox_elem_2d_box.set("xMax", str(x_max))
-                bbox_elem_2d_box.set("yMin", str(y_min))
-                bbox_elem_2d_box.set("yMax", str(y_max))
-                
-                for edge in edges:
-                    # Join the vertices into edges
-                    p1 = get_image_point(verts[edge[0]], K, world_2_camera)
-                    p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
-                    
-                    bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
-                    
-                    bbox_elem_edge.set("x1", str(p1[0]))
-                    bbox_elem_edge.set("y1", str(p1[1]))
-                    bbox_elem_edge.set("x2", str(p2[0]))
-                    bbox_elem_edge.set("y2", str(p2[1]))
-                    
-                    counter += 1
-                    
+                save_box(bb, bbox_elem, camera_transform, world_2_camera)
 
     # Save the bounding boxes in the scene
     filename = 'static_bbs.xml'
@@ -341,7 +424,29 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
         # Save semantic lidar data to path
         file_name = '%s.ply' % name
         full_path = os.path.join(sample_path, file_name)
-        data.save_to_disk(full_path)
+        
+        # new_data = carla.SemanticLidarMeasurement()
+        with open(full_path, 'w') as file:
+            file.write("ply\n"
+           "format ascii 1.0\n"
+           "element vertex 7018\n"
+           "property float32 x\n"
+           "property float32 y\n"
+           "property float32 z\n"
+           "property float32 CosAngle\n"
+           "property uint32 ObjIdx\n"
+           "property uint32 ObjTag\n"
+           "end_header\n")
+            
+            for point in data:
+                file.write(str(point.point.x) + " "  + 
+                           str(point.point.y * -1.0) + " " + 
+                           str(point.point.z) + " " +
+                           str(point.cos_inc_angle) + " " +
+                           str(point.object_idx) + " " +
+                           str(point.object_tag) + "\n")
+
+        # data.save_to_disk(full_path)
         
         actor_set = set()
         
@@ -352,13 +457,25 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
         
         # All unique edges needed to create bounding box
         edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
+        camera_transform = data.transform
+        # get accurate camera position from position_dict
+        for i in range(2):
+            try:
+                saved_frame_num = data.frame - first_data_frame+1
+                if first_data_frame is not None and saved_frame_num in position_dict:
+                    camera_transform = position_dict[saved_frame_num]
+                    break
+                else:
+                    time.sleep(1)
+            except:
+                time.sleep(1)
         
-        world_2_camera = np.array(data.transform.get_inverse_matrix())
+        world_2_camera = np.array(camera_transform.get_inverse_matrix())
         K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
         
         root = ET.Element("DynamicBoundingBoxes")
         tree = ET.ElementTree(root)
-        
+
         for actor_id in actor_set:
             actor = actors.find(actor_id)
             
@@ -367,7 +484,13 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
                 continue
             
             bbox_elem = ET.SubElement(root, "BoundingBox")
-            bbox_elem.set("class", str(type(actor)).split("'")[1])
+            # bbox_elem.set("class", str(type(actor)).split("'")[1])
+            
+            if "base_type" in actor.attributes and actor.attributes["base_type"] != "":
+                bbox_elem.set("class", actor.attributes["base_type"].capitalize())
+            else:
+                bbox_elem.set("class", str(type(actor)).split("'")[1].split(".")[-1])
+                
             position_transform = bb_transform_dict[actor_id][1]
 
             good_frame = False
@@ -387,56 +510,16 @@ def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
                 world_2_camera = np.array(position_dict[saved_frame_num].get_inverse_matrix())
 
             if not good_frame:
-                print('lidar frame oofed:', data.frame)
+                #print('lidar frame oofed:', data.frame)
+                pass
             
-
-            bb = bb_transform_dict[actor_id][0]
-            verts = [v for v in bb.get_world_vertices(position_transform)]
-            counter = 0
             
             bbox_elem.set("actorId", str(actor_id))
-            
-            x_max = -10000
-            x_min = 10000
-            y_max = -10000
-            y_min = 10000
-            for vert in verts:
-                p = get_image_point(vert, K, world_2_camera)
-                if p[0] > x_max:
-                    x_max = p[0]
-                if p[0] < x_min:
-                    x_min = p[0]
-                if p[1] > y_max:
-                    y_max = p[1]
-                if p[1] < y_min:
-                    y_min = p[1]
-            
-            # Store center of object
-            bbox_elem_center = ET.SubElement(bbox_elem, "center")
-            bbox_elem_center.set("x", str(bb_transform_dict[actor_id][1].location.x))
-            bbox_elem_center.set("y", str(bb_transform_dict[actor_id][1].location.y))
-            bbox_elem_center.set("z", str(bb_transform_dict[actor_id][1].location.z))
-            
-            # Store 2D Box values
-            bbox_elem_2d_box = ET.SubElement(bbox_elem, "Box2d")
-            bbox_elem_2d_box.set("xMin", str(x_min))
-            bbox_elem_2d_box.set("xMax", str(x_max))
-            bbox_elem_2d_box.set("yMin", str(y_min))
-            bbox_elem_2d_box.set("yMax", str(y_max))
-            
-            for edge in edges:
-                    # Join the vertices into edges
-                    p1 = get_image_point(verts[edge[0]], K, world_2_camera)
-                    p2 = get_image_point(verts[edge[1]],  K, world_2_camera)
-                    # Draw the edges into the camera output
-                    bbox_elem_edge = ET.SubElement(bbox_elem, "edge" + str(counter))
-                    
-                    bbox_elem_edge.set("x1", str(p1[0]))
-                    bbox_elem_edge.set("y1", str(p1[1]))
-                    bbox_elem_edge.set("x2", str(p2[0]))
-                    bbox_elem_edge.set("y2", str(p2[1]))
-                    
-                    counter += 1
+
+            bb = bb_transform_dict[actor_id][0]
+            object_transform = bb_transform_dict[actor_id][1]
+
+            save_box(bb, bbox_elem, camera_transform, world_2_camera, object_transform)
         
         # Save the bounding boxes in the scene
         filename = 'dynamic_bbs.xml'
@@ -554,11 +637,8 @@ def prep_episode(client, args, iteration_name, episode_name): # uses code from a
         }
         right_mat = build_calibration_mat(right_rgb_vals)
 
-        # save camera calibration to episode directory
-        left_path = os.path.join(episode_path, "left_rgb_mat.csv")
-        right_path = os.path.join(episode_path, "right_rgb_mat.csv")
-        np.savetxt(left_path, left_mat, delimiter=",")
-        np.savetxt(right_path, right_mat, delimiter=",")
+        # save camera calibration to data directory
+        save_calibration_mats(left_mat, right_mat)
                 
        
         bp_library = world.world.get_blueprint_library()
@@ -633,12 +713,17 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
         s_lidar = None
         main_cam = sensors[0]
         
-        while num_ticks < 2000:
+        while num_ticks < 200:
             clock.tick()
            
             if not args.asynch:
                 
                 position_dict[num_ticks] = main_cam.get_transform()
+                if num_ticks >= 1:
+                    if position_dict[num_ticks-1].location == position_dict[num_ticks].location:
+                        #print('is still')
+                        pass
+
                 #print(position_dict.keys())
                 world.world.tick()
                 
@@ -653,8 +738,8 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
                     s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
                     s_lidar_bp.set_attribute('lower_fov', str(-30.0))
                     s_lidar_bp.set_attribute('upper_fov', str(30.0))
-                    s_lidar_bp.set_attribute('points_per_second', str(224000))
-                    s_lidar_bp.set_attribute('channels', str(128.0)) 
+                    s_lidar_bp.set_attribute('points_per_second', str(448000))
+                    s_lidar_bp.set_attribute('channels', str(64.0)) 
                     transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
                     
@@ -713,6 +798,7 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
 
         pygame.quit()
         
+        # may or may not be needed for waiting to finish writes (idk)
         time.sleep(5)
 
 
@@ -1138,9 +1224,11 @@ def main():
 
         time.sleep(0.5)
         
-        clean_data()
+        if output_path:
+            clean_data()
+            write_episode_kitti(output_path)
 
-def match_dynamic_static(dynamic_objects, static_objects):
+def match_dynamic_static(dynamic_objects, static_objects, dynamic_tree_root):
     for dynamic_object in dynamic_objects:
         closest_static = (None, float('inf'))
         
@@ -1161,17 +1249,39 @@ def match_dynamic_static(dynamic_objects, static_objects):
         # Assign dynamic actor id to closest static object
         if closest_static[0]:
             closest_static[0].set("actorId", dynamic_object.attrib["actorId"])
+            object = closest_static[0]
+            # Update dynamic object edges to closest static
+            bbox_elem = ET.SubElement(dynamic_tree_root, 'BoundingBox', attrib=object.attrib)
 
-def remove_unmatched_static(static_objects, static_tree):
+            # copy all subelements of static obj into new dynamic actor xml element 
+            for child in object:
+                bbox_elem.append(child)
+                        
+            # mark previous box for comparison to new one
+            if DEBUG_ON:
+                dynamic_object.set('moved','True')
+            else:
+                dynamic_tree_root.remove(dynamic_object)
+
+def move_unmatched_static(static_objects, static_tree, occlude_tree_root):
     for object in static_objects:
+        # Objects without actorId are obscured
         if "actorId" not in object.attrib:
-            static_tree.remove(object)
+            bbox_elem = ET.SubElement(occlude_tree_root, 'BoundingBox', attrib=object.attrib)
+            for child in object:
+                child_copy = ET.SubElement(bbox_elem, child.tag, attrib=child.attrib)
+                # Copy text content if any
+                if child.text:
+                    child_copy.text = child.text
+        
+        static_tree.remove(object)
 
 def clean_data():
-    frames = os.scandir(output_path)
+    frames = list(os.scandir(output_path))
+    
+    deleted_frames = 0
     
     for frame in frames:
-        
         if frame.name == "config.ini":
             continue
         
@@ -1180,6 +1290,7 @@ def clean_data():
         # Remove frames that are missing data
         if len(list(frame_data)) < FILES_PER_FRAME:
             shutil.rmtree(frame)
+            deleted_frames += 1
             continue
         
         dynamic_tree = ET.parse(os.path.join(frame.path, 'dynamic_bbs.xml'))
@@ -1188,21 +1299,49 @@ def clean_data():
         dynamic_tree_root = dynamic_tree.getroot()
         static_tree_root = static_tree.getroot()
         
-        dynamic_traffic_lights = dynamic_tree_root.findall('.//BoundingBox[@class="carla.libcarla.TrafficLight"]')
-        dynamic_traffic_signs = dynamic_tree_root.findall('.//BoundingBox[@class="carla.libcarla.TrafficSign"]')
+        dynamic_traffic_lights = dynamic_tree_root.findall('.//BoundingBox[@class="TrafficLight"]')
+        dynamic_traffic_signs = dynamic_tree_root.findall('.//BoundingBox[@class="TrafficSign"]')
         
         static_traffic_lights = static_tree_root.findall('.//BoundingBox[@class="TrafficLight"]')
-        static_traffic_signs = static_tree_root.findall('.//BoundingBox[@class="TrafficSign"]')
+        static_traffic_signs = static_tree_root.findall('.//BoundingBox[@class="TrafficSigns"]')
         
         # Match dynamic objects to static objects by distance
-        match_dynamic_static(dynamic_traffic_lights, static_traffic_lights)
-        match_dynamic_static(dynamic_traffic_signs, static_traffic_signs)
+        match_dynamic_static(dynamic_traffic_lights, static_traffic_lights, dynamic_tree_root)
+        match_dynamic_static(dynamic_traffic_signs, static_traffic_signs, dynamic_tree_root)
         
-        remove_unmatched_static(static_traffic_lights, static_tree_root)
-        remove_unmatched_static(static_traffic_signs, static_tree_root)
+        # Create occluded bb tree and populate with occluded boxes
+        occlude_tree_root = ET.Element("OccludedBoundingBoxes")
+        occlude_tree = ET.ElementTree(occlude_tree_root)
+        
+        move_unmatched_static(static_traffic_lights, static_tree_root, occlude_tree_root)
+        move_unmatched_static(static_traffic_signs, static_tree_root, occlude_tree_root)
+        
+        indent(occlude_tree_root)
+        indent(dynamic_tree_root)
         
         static_tree.write(os.path.join(frame.path, 'static_bbs.xml'))
-        
+        occlude_tree.write(os.path.join(frame.path, 'obscured_bbs.xml'))
+        dynamic_tree.write(os.path.join(frame.path, 'dynamic_bbs.xml'))
+    
+    frame_count = len(frames) - deleted_frames
+    print("deleted frames:", deleted_frames)
+    
+    key = EGO_BEHAVIOR + "_" + EXTERNAL_BEHAVIOR + "_" + str(WEATHER) + "_" + MAP
 
+    config = configparser.ConfigParser()
+    config.read(os.path.join(DATA_PATH, "config.ini"))
+
+    if 'FRAMECOUNTS' not in config:
+        config['FRAMECOUNTS'] = {}
+    if key in config['FRAMECOUNTS']:
+        value = config['FRAMECOUNTS'][key]
+        value = value + ',' + str(frame_count)
+        config['FRAMECOUNTS'][key] = value
+    else:
+        config['FRAMECOUNTS'][key] = str(frame_count)
+
+    with open(os.path.join(DATA_PATH, "config.ini"), 'w') as configfile:    # save
+        config.write(configfile)
+    
 if __name__ == '__main__':
     main()

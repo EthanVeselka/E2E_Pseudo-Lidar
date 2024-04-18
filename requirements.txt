@@ -1,3 +1,4 @@
+* The following dependencies are required to run this app: 
 asn1crypto==0.24.0
 bcrypt==3.1.4
 bitstring==3.1.5

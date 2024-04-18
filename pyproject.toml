@@ -1,0 +1,14 @@
+[build-system]
+requires = []
+
+[project]
+name = "Pseudo-LiDAR"
+description = "End-to-End Pseudo-LiDAR"
+readme = "README.md"
+authors = [{name = "Andrew Zehrer", email = "andrewzehrer@tamu.edu}, 
+           {name = "Ethan Veselka", email = "veselka@tamu.edu"},
+           {name = "Luke Miller", email = "luketmiller1@tamu.edu"},
+           {name = "Fredy Medawar", email = "fredymedawar@tamu.edu"},
+           {name = "Aakash Haran", email = "ash3498@tamu.edu"},
+           {name = "Trevor Hatch", email = "trevorhatch@tamu.edu"}]
+
