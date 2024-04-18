@@ -241,7 +241,10 @@ def save_box(bb, bbox_elem, sensor_transform, world_2_camera, object_transform =
                 bbox_elem_rel.set('roll', str(object_transform.rotation.roll - sensor_transform.rotation.pitch))
 
                 # Store location of bb center relative to sensor
-                centroid_location = get_camera_point(object_transform.location, world_2_camera)
+                obj_location = bb.location
+                if is_dynamic:
+                    obj_location = object_transform.location
+                centroid_location = get_camera_point(obj_location, world_2_camera)
                 bbox_elem_rel_loc = ET.SubElement(bbox_elem, "relative_center")
                 bbox_elem_rel_loc.set('x', str(centroid_location[0]))
                 bbox_elem_rel_loc.set('y', str(centroid_location[1]))
