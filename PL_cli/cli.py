@@ -1,15 +1,15 @@
 import click
 import sys
 
-from edit_config import edit_config
-from run_script import run_script
+from PL_cli.edit_config import edit_config
+from PL_cli.run_script import run_script
 
 @click.command()
 def main():
     click.echo("This is the CLI for the Pseudo-LiDAR project. Type 'help' at any time for a list of options.") 
 
     while True:
-        command = click.prompt("\nEnter a command (type 'exit' to quit)")
+        command = click.prompt("\nEnter a command")
 
         if command == "exit":
             click.echo("Exiting...")
@@ -94,7 +94,7 @@ def main():
                     
                     # run data collection script
                     try:
-                        run_script("carla_data/carla_client.py")
+                        run_script("carla_data\carla_client.py")
                     except Exception as e:
                         click.echo(f"Error: {e}")
 
