@@ -9,6 +9,7 @@ def write_episode_kitti(output_path):
         'Vehicle' : 'Vehicle',
         'Pedestrian' : 'Pedestrian',
         'TrafficSign' : 'TrafficSign',
+        'TrafficSigns' : 'TrafficSign',
         'TrafficLight' : 'TrafficLight',
         'Car' : 'Car',
         'Truck' : 'Truck',
@@ -102,7 +103,7 @@ if __name__ == '__main__':
             most_recent_path = output_path
             recent_time =  os.path.getmtime(output_path)
 
-    print('output path:', most_recent_path)
+    #print('output path:', most_recent_path)
     # create kitti data for that run
     write_episode_kitti(most_recent_path)
 
