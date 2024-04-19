@@ -4,9 +4,10 @@ import torch
 import numpy as np
 import configparser
 from ast import literal_eval
+#import sys
 
 BASE_DIR = ".."
-# sys.path.append(BASE_DIR)
+#sys.path.append(BASE_DIR)
 
 
 # ---WARNING: INCOMPLETE---#
@@ -97,7 +98,7 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
                 ):
                     frames.extend(
                         [
-                            frame
+                            list_dir + "/" + frame
                             for frame in os.listdir(curr_dir)
                             if frame != "config.ini"
                         ]
@@ -118,19 +119,19 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
     print(f"Wrote {len(train)} samples to train.csv")
     file = open(save_file_path + "/train.csv", "w")
     for idx in train:
-        file.write(list_dir + "/" + frames[idx] + "\n")
+        file.write(frames[idx] + "\n")
     file.close()
 
     print(f"Wrote {len(val)} samples to val.csv")
     file = open(save_file_path + "/val.csv", "w")
     for idx in val:
-        file.write(list_dir + "/" + frames[idx] + "\n")
+        file.write(frames[idx] + "\n")
     file.close()
     
     print(f"Wrote {len(test)} samples to test.csv")
     file = open(save_file_path + "/test.csv", "w")
     for idx in test:
-        file.write(list_dir + "/" + frames[idx] + "\n")
+        file.write(frames[idx] + "\n")
     file.close()
 
     return save_file_path
