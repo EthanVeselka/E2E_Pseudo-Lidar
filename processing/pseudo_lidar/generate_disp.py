@@ -51,6 +51,8 @@ def generate_disparity(filepath):
             continue
         if episode == "calibmatrices.txt":
             continue
+        if episode == "config.ini":
+            continue
 
         os.chdir(episode)
         curr_dir = filepath + "/" + episode
@@ -97,4 +99,8 @@ def generate_disparity(filepath):
                     np.save("output/left_disp.npy", disp)
 
                     os.chdir("..")
+                    
+            os.chdir("../../")
+        os.chdir("../")
+            
     os.chdir("../../../../..")

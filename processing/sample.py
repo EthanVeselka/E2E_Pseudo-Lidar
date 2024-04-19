@@ -64,6 +64,8 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
             continue
         if episode == "calibmatrices.txt":
             continue
+        if episode == "config.ini":
+            continue
         os.chdir(episode)
         curr_dir = DATA_PATH + "/" + episode
         ep_conf = configparser.ConfigParser()
@@ -103,6 +105,8 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
                             if frame != "config.ini"
                         ]
                     )
+            os.chdir("../../")
+        os.chdir("../")
 
     # randomly sample indices from directories
     assert len(frames) >= SAMPLE_SIZE

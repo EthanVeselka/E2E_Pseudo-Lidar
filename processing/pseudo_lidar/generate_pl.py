@@ -41,10 +41,10 @@ def project_depth_to_points(calib, depth, max_high):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Lidar")
-    parser.add_argument("--root_dir", type=str, default="carla_data/example_data")
+    parser.add_argument("--root_dir", type=str, default="carla_data/data")
     parser.add_argument("--max_high", type=int, default=1)
     parser.add_argument("--is_depth", action="store_true")
-    parser.add_argument("--calib_dir", type=str, default="carla_data/example_data")
+    parser.add_argument("--calib_dir", type=str, default="carla_data/data")
     parser.add_argument(
         "--listfile_dir",
         type=str,

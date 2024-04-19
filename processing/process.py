@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     config = "config.ini"
     save_file_path = "carla_data/output"
-    datapath = "carla_data/example_data"
+    datapath = "carla_data/data"
 
     args = parser.parse_args()
     if args.clean:

@@ -37,6 +37,7 @@ def clean_output(datapath):
         for iteration in os.listdir(curr_dir):
             if iteration == config:
                 continue
+            print(os.getcwd())
             os.chdir(iteration)
             curr_dir = os.path.join(curr_dir, iteration)
 
@@ -57,6 +58,8 @@ def clean_output(datapath):
                     else:
                         shutil.rmtree(os.path.join(curr_dir, frame, "output"))
                         os.chdir("..")
+            os.chdir("../../")
+        os.chdir("../../")
 
     os.chdir("../../../../output")
     if os.path.exists("train.csv"):

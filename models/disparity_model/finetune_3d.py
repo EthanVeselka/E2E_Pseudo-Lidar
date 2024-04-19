@@ -41,7 +41,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--datapath",
-    default="carla_data/example_data/",
+    default="carla_data/data/",
     help="datapath",
 )
 parser.add_argument(
