@@ -124,8 +124,8 @@ def test_accuracy(imgL, imgR, disp_true):
     torch.cuda.empty_cache()
 
     if len(index[0]) == 0:
-        return 0.0
-    return float(torch.sum(correct)) / float(len(index[0]))
+        return 1.0
+    return 1 - float(torch.sum(correct)) / float(len(index[0]))
 
 
 def test(imgL, imgR):
@@ -157,11 +157,11 @@ def main():
         
         for batch_idx, (imgL, imgR, dispL) in enumerate(TestImgLoader):
             curr = test_accuracy(imgL, imgR, dispL)
-            print("frame", count, "accuracy:", str(curr))
+            print("frame", count, "error:", str(curr))
             total += curr
             count += 1
             
-        print("Accuracy:", str(total/count), "over", str(count), "frames")
+        print("Error:", str(total/count), "over", str(count), "frames")
         return
 
     else:

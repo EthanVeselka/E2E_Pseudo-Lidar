@@ -169,7 +169,7 @@ def test(imgL, imgR, disp_true):
     )
     torch.cuda.empty_cache()
 
-    return float(torch.sum(correct)) / float(len(index[0]))
+    return 1 - float(torch.sum(correct)) / float(len(index[0]))
 
 
 def adjust_learning_rate(optimizer, epoch):
@@ -202,7 +202,7 @@ def main():
             )
             total_train_loss += loss
             acc = test(imgL_crop, imgR_crop, disp_crop_L)
-            print("Batch Accuracy: ", acc)
+            print("Batch Error: ", acc)
         
         print("\n")
         print("-----------------------------------")
@@ -215,7 +215,7 @@ def main():
         for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(ValImgLoader):
             total += test(imgL_crop, imgR_crop, disp_crop_L)
             counter += 1
-        print(f"Epoch {epoch}: average validation accuracy = {total/counter}")
+        print(f"Epoch {epoch}: average validation error = {total/counter}")
         print("-----------------------------------")
         print("\n")
 
