@@ -123,6 +123,8 @@ def test_accuracy(imgL, imgR, disp_true):
     )
     torch.cuda.empty_cache()
 
+    if len(index[0]) == 0:
+        return 0.0
     return float(torch.sum(correct)) / float(len(index[0]))
 
 
@@ -137,8 +139,6 @@ def test(imgL, imgR):
         imgR = torch.FloatTensor(imgR)
 
     with torch.no_grad():
-        print(imgL.size())
-        print(imgR.size())
         output = model(imgL, imgR)
     output = torch.squeeze(output)
     pred_disp = output.data.cpu().numpy()
@@ -148,9 +148,6 @@ def test(imgL, imgR):
 
 def main():
     processed = preprocess.get_transform(augment=False)
-    if task == "test" and not os.path.exists(save_path):
-        os.mkdir(save_path)
-
     total = 0
     counter = 0
 
@@ -158,8 +155,8 @@ def main():
         total = 0
         count = 0
         
-        for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(TestImgLoader):
-            curr = test_accuracy(imgL_crop, imgR_crop, disp_crop_L)
+        for batch_idx, (imgL, imgR, dispL) in enumerate(TestImgLoader):
+            curr = test_accuracy(imgL, imgR, dispL)
             print("frame", count, "accuracy:", str(curr))
             total += curr
             count += 1
@@ -168,46 +165,52 @@ def main():
         return
 
     else:
+        if task == "test" and not os.path.exists(save_path):
+            os.mkdir(save_path)
+        count = 0
+        t = 0
         for idx in range(len(test_left_img)):
+            print(f"Progress: {((idx + 1) / len(test_left_img)) * 100:.2f}% complete", end="\r")
+        
+            count += 1
             imgL_o = Image.open(test_left_img[idx]).convert("RGB")
             imgR_o = Image.open(test_right_img[idx]).convert("RGB")
 
-            w = 1248
-            h = 384
+            # crop to KITTI size
+            w = 1280
+            h = 720
             imgL = np.array(imgL_o.crop((0, 0, w, h))).astype("float32")
             imgR = np.array(imgR_o.crop((0, 0, w, h))).astype("float32")
-            # imgL = np.array(imgL).astype("float32")
-            # imgR = np.array(imgR).astype("float32")
+            # imgL = np.array(imgL_o).astype("float32")
+            # imgR = np.array(imgR_o).astype("float32")
             imgL = processed(imgL).numpy()
             imgR = processed(imgR).numpy()
             imgL = np.reshape(imgL, [1, 3, imgL.shape[1], imgL.shape[2]])
             imgR = np.reshape(imgR, [1, 3, imgR.shape[1], imgR.shape[2]])
-
-            # pad to (384, 1248)
-            top_pad = 384 - imgL.shape[2]
-            left_pad = 1248 - imgL.shape[3]
-            imgL = np.lib.pad(
-                imgL,
-                ((0, 0), (0, 0), (top_pad, 0), (0, left_pad)),
-                mode="constant",
-                constant_values=0,
-            )
-            imgR = np.lib.pad(
-                imgR,
-                ((0, 0), (0, 0), (top_pad, 0), (0, left_pad)),
-                mode="constant",
-                constant_values=0,
-            )
+            # pad to 1248x384 (KITTI size) 
+            # top_pad = 384 - imgL.shape[2]
+            # left_pad = 1248 - imgL.shape[3]
+            # imgL = np.lib.pad(
+            #     imgL,
+            #     ((0, 0), (0, 0), (top_pad, 0), (0, left_pad)),
+            #     mode="constant",
+            #     constant_values=0,
+            # )
+            # imgR = np.lib.pad(
+            #     imgR,
+            #     ((0, 0), (0, 0), (top_pad, 0), (0, left_pad)),
+            #     mode="constant",
+            #     constant_values=0,
+            # )
 
             start_time = time.time()
             pred_disp = test(imgL, imgR)
-            print("time = %.2f" % (time.time() - start_time))
-
+            t += (time.time() - start_time)
+            
             # top_pad = 384 - 352
             # left_pad = 1248 - 1200
             # img = pred_disp[top_pad:, :-left_pad]
             img = pred_disp
-            print(test_left_img[idx].split("/")[-1])
             frame = test_left_img[idx].split("/")[-2]
             if args.save_figure:
                 if task == "test":
@@ -232,6 +235,7 @@ def main():
                         + "/predicted_disp.npy",
                         img,
                     )
+        print("Frames", count, ": average time = %.2f" % (t/count))
 
 
 if __name__ == "__main__":

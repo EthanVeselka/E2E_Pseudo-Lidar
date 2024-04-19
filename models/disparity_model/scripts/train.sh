@@ -1,8 +1,10 @@
 python3 ../finetune_3d.py \
-    --cuda \
-    --maxdisp 192 \
+    --loadmodel ../saved_models/pretrained_sceneflow.tar \
+    --savemodel ../saved_models/finetune_pre \
     --datapath carla_data/example_data/ \
     --split_file carla_data/output \
-    --epochs 20 \
+    --maxdisp 192 \
     --lr_scale 50 \
-    --btrain 12
+    --epochs 5 \
+    --btrain 4 \
+    --cuda

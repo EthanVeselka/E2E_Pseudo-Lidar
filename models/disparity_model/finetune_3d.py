@@ -26,8 +26,8 @@ import processing.pseudo_lidar.custom_dataset as DA
 parser = argparse.ArgumentParser(description="PSMNet")
 parser.add_argument("--maxdisp", type=int, default=192, help="maximum disparity")
 parser.add_argument("--epochs", type=int, default=1, help="number of epochs to train")
-parser.add_argument("--loadmodel", default=None, help="load model")
-parser.add_argument("--savemodel", default="../saved_models", help="save model")
+parser.add_argument("--loadmodel", default=None, help="load pretrained model")
+parser.add_argument("--savemodel", default="../saved_models", help="model save name")
 parser.add_argument("--btrain", type=int, default=1, help="size of batch")
 parser.add_argument("--start_epoch", type=int, default=1)
 parser.add_argument(
@@ -61,7 +61,6 @@ if not os.path.isdir(args.savemodel):
 print(os.path.join(args.savemodel, "training.log"))
 log = setup_logger(os.path.join(args.savemodel, "training.log"))
 
-# add left, right, disp manually from data loader
 
 datapath = os.path.join(BASE_DIR, args.datapath)
 split_file = os.path.join(BASE_DIR, args.split_file)
@@ -95,12 +94,10 @@ ValImgLoader = torch.utils.data.DataLoader(
 
 
 model = stackhourglass(args.maxdisp)
-
 if args.cuda:
     model = nn.DataParallel(model)
     model.cuda()
-
-if args.loadmodel is not None:
+if args.loadmodel != None:
     log.info("load model " + args.loadmodel)
     state_dict = torch.load(args.loadmodel)
     model.load_state_dict(state_dict["state_dict"])
@@ -143,7 +140,6 @@ def train(imgL, imgR, disp_L):
     loss.backward()
     optimizer.step()
 
-    print(loss.item())
     return loss.item()
 
 
@@ -206,23 +202,26 @@ def main():
             )
             total_train_loss += loss
             acc = test(imgL_crop, imgR_crop, disp_crop_L)
-            print("Accuracy: ", acc)
+            print("Batch Accuracy: ", acc)
+        
+        print("\n")
+        print("-----------------------------------")
         print(
-            "epoch %d total training loss = %.3f"
+            "Epoch %d: average training loss = %.3f"
             % (epoch, total_train_loss / len(TrainImgLoader))
         )
-
         total = 0
         counter = 0
         for batch_idx, (imgL_crop, imgR_crop, disp_crop_L) in enumerate(ValImgLoader):
             total += test(imgL_crop, imgR_crop, disp_crop_L)
             counter += 1
-
-        print(f"epoch {epoch} average accuracy = {total/counter}".format("%d", "%.3f"))
+        print(f"Epoch {epoch}: average validation accuracy = {total/counter}")
+        print("-----------------------------------")
+        print("\n")
 
         # SAVE
-        if not os.path.isdir("../" + args.savemodel):
-            os.makedirs("../" + args.savemodel)
+        if not os.path.isdir(args.savemodel):
+            os.makedirs(args.savemodel)
         savefilename = args.savemodel + "/finetune_" + str(epoch) + ".tar"
         torch.save(
             {
