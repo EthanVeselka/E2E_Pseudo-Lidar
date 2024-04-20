@@ -18,7 +18,7 @@ def main():
         if command == "help":
             click.echo("")
             click.echo("edit: Edit a configuration file")
-            click.echo("run : Run a script")
+            click.echo("collect : Run the data collection script")
             click.echo("")
             click.echo("help: Display a helpful message")
             click.echo("exit: Close the CLI")
@@ -78,43 +78,43 @@ def main():
 
             continue
      
-        if command == "run":
-            option = ""
-            while option not in ["data collection", "sampling", "cancel"]:
-                option = click.prompt("Which script would you like to run? (Data collection / Cancel)", type=str).lower()
-                if option == "cancel":
-                    break
+        # if command == "run":
+        #     option = ""
+        #     while option not in ["data collection", "cancel"]:
+        #         option = click.prompt("Which script would you like to run? (Data collection / Cancel)", type=str).lower()
+        #         if option == "cancel":
+        #             break
 
-                if option == "help":
-                    click.echo("Options: Data collection, Cancel")
-                    continue
+        #         if option == "help":
+        #             click.echo("Options: Data collection, Cancel")
+        #             continue
 
-                if option == "data collection":
-                    click.echo("Running carla_data/carla_client.py ...")
+        #         if option == "data collection":
+        #             click.echo("Running carla_data/carla_client.py ...")
                     
-                    # run data collection script
-                    try:
-                        run_script("carla_data\carla_client.py")
-                    except Exception as e:
-                        click.echo(f"Error: {e}")
+        #             # run data collection script
+        #             try:
+        #                 run_script("carla_data\carla_client.py")
+        #             except Exception as e:
+        #                 click.echo(f"Error: {e}")
 
-                    break
+        #             break
 
+        if command == "collect":
+            click.echo("Do you want to run the data collection script? (y/n)")
+            response = click.prompt("")
+            if response in ["y", "yes", "Y", "Yes"]:
+                click.echo("Running carla_data/carla_client.py ...")
+                        
+                # run data collection script
+                try:
+                    run_script("carla_data\carla_client.py")
+                except Exception as e:
+                    click.echo(f"Error: {e}")
 
-# @click.command()
-# @click.option("--key", type=str, help="The key to modify. Options: data_path, ego_behavior, external_behavior, weather, map, all, splits, sample_size, carla_python_path, poll_rate, camera_x, camera_y, camera_fov")
-# @click.option("--value", type=str, help="The new value for the key.")
-# @click.option("--file-path", type=str, help="Path to the config file.")
-
-# def edit(key, value, file_path):
-#     try:
-#         edit_config(key, value, file_path)
-#         click.echo("Configuration updated successfully.")
-#         sys.exit(0)
-#     except Exception as e:
-#         click.echo(f"Error: {e}")
-#         click.echo("") #TODO: Add usage instructions
-#         sys.exit(1)
+                break
+            else:
+                continue
 
 if __name__ == "__main__":
     main()
