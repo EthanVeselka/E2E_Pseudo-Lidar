@@ -27,7 +27,7 @@ def in_hull(p, hull):
     from scipy.spatial import Delaunay
 
     if not isinstance(hull, Delaunay):
-        hull = Delaunay(hull)
+        hull = Delaunay(hull, qhull_options='QJ')
     return hull.find_simplex(p) >= 0
 
 
@@ -54,9 +54,9 @@ def demo(idx_filename="train.csv"):
     from viz_util import draw_lidar, draw_lidar_simple, draw_gt_boxes3d
 
     # "dataset/KITTI/object"
-    # dataset = FPNDataset(os.path.join(ROOT_DIR, "carla_data/example_data"))
+    # dataset = FPNDataset(os.path.join(ROOT_DIR, "carla_data/data"))
     dataset = FPNDataset(
-        os.path.join(ROOT_DIR, "carla_data/example_data"), idx_filename=idx_filename
+        os.path.join(ROOT_DIR, "carla_data/data"), idx_filename=idx_filename
     )
     data_idx = 0
 
@@ -193,7 +193,7 @@ def extract_frustum_data(
         None (will write a .pickle file to the disk)
     """
     dataset = FPNDataset(
-        os.path.join(ROOT_DIR, "carla_data/example_data"), split, idx_filename
+        os.path.join(ROOT_DIR, "carla_data/data"), split, idx_filename
     )
     # data_idx_list = [int(line.rstrip()) for line in open(idx_filename)]
     data_idx_list = [i for i in range(len(dataset))]
@@ -212,6 +212,8 @@ def extract_frustum_data(
     pos_cnt = 0
     all_cnt = 0
     cnt = 0
+    frame_count = 0
+    obj_dict = {}
     for data_idx in data_idx_list:
         print("------------- ", data_idx)
         calib = dataset.get_calibration(data_idx)  # 3 by 4 matrix
@@ -223,11 +225,25 @@ def extract_frustum_data(
         # print(pc_rect.shape)
         img = dataset.get_image(data_idx)
         img_height, img_width, img_channel = img.shape
-        _, pc_image_coord, img_fov_inds = get_lidar_in_image_fov(
+        imgfov_pc_velo, pc_image_coord, img_fov_inds = get_lidar_in_image_fov(
             pc_velo[:, 0:3], calib, 0, 0, img_width, img_height, True
         )
+        
+        obj_seen = {}
+        print("len pc_velo", len(pc_velo[:, 0:3]))
+        print("len imgfov_pc_velo", len(imgfov_pc_velo))
 
         for obj_idx in range(len(objects)):
+            
+            # Count frames with each object type
+            object_label = objects[obj_idx].type
+            if object_label not in obj_dict:
+                obj_dict[object_label] = [0, 0]
+            if object_label not in obj_seen:
+                obj_seen[object_label] = [True, False]
+                obj_dict[object_label][0] += 1
+            
+            
             if objects[obj_idx].type not in type_whitelist:
                 continue
 
@@ -235,6 +251,7 @@ def extract_frustum_data(
             box2d = objects[obj_idx].box2d
             for _ in range(augmentX):
                 # Augment data by box2d perturbation
+                perturb_box2d = False
                 if perturb_box2d:
                     xmin, ymin, xmax, ymax = random_shift_box2d(box2d)
                     print(box2d)
@@ -247,8 +264,13 @@ def extract_frustum_data(
                     & (pc_image_coord[:, 1] < ymax)
                     & (pc_image_coord[:, 1] >= ymin)
                 )
+                
+                # print("box_fov_inds", len([i for i in box_fov_inds if i == True]))
                 box_fov_inds = box_fov_inds & img_fov_inds
                 pc_in_box_fov = pc_rect[box_fov_inds, :]
+                
+                # print('box_fov_inds:', box_fov_inds)
+                # print('pc_in_box_fov:', pc_in_box_fov)
 
                 # Get frustum angle (according to center pixel in 2D BOX)
                 box2d_center = np.array([(xmin + xmax) / 2.0, (ymin + ymax) / 2.0])
@@ -275,6 +297,10 @@ def extract_frustum_data(
                 if ymax - ymin < 25 or np.sum(label) == 0:
                     continue
 
+                if obj_seen[object_label][1] == False:
+                    obj_seen[object_label][1] = True
+                    obj_dict[object_label][1] += 1
+                
                 id_list.append(data_idx)
                 box2d_list.append(np.array([xmin, ymin, xmax, ymax]))
                 box3d_list.append(box3d_pts_3d)
@@ -292,7 +318,11 @@ def extract_frustum_data(
 
     print("Average pos ratio: %f" % (pos_cnt / float(all_cnt)))
     print("Average npoints: %f" % (float(all_cnt) / len(id_list)))
-    print("count: ", cnt)
+    # print("count: ", cnt)
+    print("frame count", len((set(id_list))))
+    
+    for key, value in obj_dict.items():
+        print("Label:", key, "Frames seen:", value[0], "Frames saved:", value[1])
 
     with open(output_filename, "wb") as fp:
         pickle.dump(id_list, fp)
@@ -351,7 +381,7 @@ def extract_frustum_data(
 def get_box3d_dim_statistics(idx_filename):
     """Collect and dump 3D bounding box statistics"""
     dataset = FPNDataset(
-        os.path.join(ROOT_DIR, "carla_data/example_data"), idx_filename=idx_filename
+        os.path.join(ROOT_DIR, "carla_data/data"), idx_filename=idx_filename
     )
     # data_idx_list = [int(line.rstrip()) for line in open(idx_filename)]
     data_idx_list = [i for i in range(len(dataset))]
@@ -380,7 +410,7 @@ def get_box3d_dim_statistics(idx_filename):
 
 def read_det_file(det_filename):
     """Parse lines in 2D detection output files"""
-    det_id2str = {1: "Pedestrian", 2: "Car", 3: "Cyclist"}
+    det_id2str = {1: "Walker", 2: "Car", 3: "Cyclist"}
     id_list = []
     type_list = []
     prob_list = []
@@ -420,7 +450,7 @@ def extract_frustum_data_rgb_detection(
         None (will write a .pickle file to the disk)
     """
     dataset = FPNDataset(
-        os.path.join(ROOT_DIR, "carla_data/example_data"),
+        os.path.join(ROOT_DIR, "carla_data/data"),
         split,
         idx_filename=det_filename,
     )
@@ -450,7 +480,7 @@ def extract_frustum_data_rgb_detection(
             pc_rect[:, 3] = pc_velo[:, 3]
             img = dataset.get_image(data_idx)
             img_height, img_width, img_channel = img.shape
-            _, pc_image_coord, img_fov_inds = get_lidar_in_image_fov(
+            imgfov_pc_velo, pc_image_coord, img_fov_inds = get_lidar_in_image_fov(
                 pc_velo[:, 0:3], calib, 0, 0, img_width, img_height, True
             )
             cache = [calib, pc_rect, pc_image_coord, img_fov_inds]
@@ -562,7 +592,7 @@ def write_2d_rgb_detection(det_filename, split, result_dir):
         write_2d_rgb_detection("val_det.txt", "training", "results")
     """
     dataset = FPNDataset(
-        os.path.join(ROOT_DIR, "carla_data/example_data"),
+        os.path.join(ROOT_DIR, "carla_data/data"),
         split,
         idx_filename=det_filename,
     )
@@ -638,14 +668,21 @@ if __name__ == "__main__":
         type_whitelist = ["Car"]
         output_prefix = "frustum_caronly_"
     elif args.carpedcyc_only:
-        type_whitelist = ["Car", "Pedestrian", "Bicycle"]
+        type_whitelist = ["Car", "Walker", "Bicycle"]
         output_prefix = "frustum_carpedcyc_"
     elif args.all:
         type_whitelist = [
             "Car",
-            "Pedestrian",
+            "Walker",
             "Bicycle",
             "TrafficLight",
+            "TrafficSigns",
+            "Truck",
+            "Van",
+            "Bus",
+            "Bicycle",
+            "Motorcycle",
+            "Vehicle"
         ]
         output_prefix = "frustum_all_"
     else:

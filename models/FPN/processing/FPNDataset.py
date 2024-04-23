@@ -53,7 +53,7 @@ class FPNDataset(object):
     def get_calibration(self, idx):
         assert idx < self.num_samples
         calib_filename = os.path.join(
-            ROOT_DIR, "carla_data/example_data/calibmatrices.txt"
+            ROOT_DIR, "carla_data/data/calibmatrices.txt"
         )
         return utils.Calibration(calib_filename)
 

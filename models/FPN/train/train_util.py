@@ -39,7 +39,7 @@ def get_batch(
     batch_size_residual = np.zeros((bsize, 3))
     batch_rot_angle = np.zeros((bsize,))
     if dataset.one_hot:
-        batch_one_hot_vec = np.zeros((bsize, 3))  # for car,ped,cyc
+        batch_one_hot_vec = np.zeros((bsize, 10))  # for car,ped,cyc
     for i in range(bsize):
         if dataset.one_hot:
             ps, seg, center, hclass, hres, sclass, sres, rotangle, onehotvec = dataset[

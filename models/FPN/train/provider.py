@@ -19,6 +19,7 @@ from box_util import box3d_iou
 from model_util import g_type2class, g_class2type, g_type2onehotclass
 from model_util import g_type_mean_size
 from model_util import NUM_HEADING_BIN, NUM_SIZE_CLUSTER
+import model_util
 
 try:
     raw_input  # Python 2
@@ -136,7 +137,7 @@ class FrustumDataset(object):
         self.one_hot = one_hot
         if overwritten_data_path is None:
             overwritten_data_path = os.path.join(
-                "../output", "frustum_caronly_%s.pickle" % (split)
+                "../output", "frustum_all_%s.pickle" % (split)
             )
 
         self.from_rgb_detection = from_rgb_detection
@@ -173,8 +174,8 @@ class FrustumDataset(object):
         # Compute one hot vector
         if self.one_hot:
             cls_type = self.type_list[index]
-            assert cls_type in ["Car", "Pedestrian", "Cyclist"]
-            one_hot_vec = np.zeros((3))
+            # assert cls_type in ["Car", "Walker", "Cyclist"]
+            one_hot_vec = np.zeros((10))
             one_hot_vec[g_type2onehotclass[cls_type]] = 1
 
         # Get point cloud
