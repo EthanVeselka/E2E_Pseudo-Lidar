@@ -6,6 +6,9 @@ import argparse
 import logging
 import pygame
 import random
+from agents.navigation.behavior_agent import BehaviorAgent 
+from agents.navigation.basic_agent import BasicAgent  
+from agents.navigation.constant_velocity_agent import ConstantVelocityAgent  
 import time
 import datetime
 import os

@@ -1,6 +1,5 @@
-# E2E_Pseudo-Lidar
-Implementing an end-to-end Pseudo-LiDAR model framework for autonomous driving in the CARLA simulator.
-
+Implementing the Pseudo-LiDAR framework from "Pseudo-LiDAR from Visual Depth Estimation:
+Bridging the Gap in 3D Object Detection for Autonomous Driving" for self-driving in PyTorch, using CARLA and OpenCV.
 # Command-Line Interface
 Usage: `python PL_cli [-h] [--key KEY] [--value VALUE] [--file-path FILE_PATH]`
 
