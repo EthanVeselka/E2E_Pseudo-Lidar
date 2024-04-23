@@ -1,7 +1,16 @@
 Implementing the Pseudo-LiDAR framework from "Pseudo-LiDAR from Visual Depth Estimation:
 Bridging the Gap in 3D Object Detection for Autonomous Driving" for self-driving in PyTorch, using CARLA and OpenCV.
 # Command-Line Interface
-Usage: `python PL_cli [-h] [--key KEY] [--value VALUE] [--file-path FILE_PATH]`
+While inside the `E2E_Pseudo-Lidar` directory, run the following command to start the program:
+`python .`
+
+List of commands:
+- edit : Edit the configuration files. Options: `data_collection`, `sampling`
+- collect : Run the data collection script.
+- view : Run the data viewer, allowing you to view the collected data.
+
+- help : Display a helpful message.
+- exit : Exit the program.
 
 ## Universal Options
 These options are found in every config file.
@@ -30,21 +39,8 @@ These options are found in every config file.
 - https://carla.readthedocs.io/en/latest/map_town02/
 - https://carla.readthedocs.io/en/latest/map_town07/
 
-## Sampling Options
-The `processing/config.ini` file contains these parameters for sampling from the CARLA data, which is then fed to the model. 
-
-**ALL** : bool
-- Description: Sample from all internal and external configurations.
-
-**SPLITS** : 3-tuple of floats
-- Format: "(train, validation, test)". **Must include parentheses and commas.**
-- Description: Proportion of set to be used for train/val/test splits, must sum to 1.
-
-**SAMPLE_SIZE** : int
-- Description: Number of frames to sample for train/val/test sets.
-
-## CARLA Data Options
-The `carla_data/config.ini` file contains these parameters for 
+## CARLA Data Collection Options
+The `carla_data/config.ini` file contains these parameters for collecting frames of data from CARLA
 
 **CARLA_PYTHON_PATH** : str
 - Description : Absolute path to CARLA Python API.
@@ -60,3 +56,16 @@ The `carla_data/config.ini` file contains these parameters for
 
 **CAMERA_FOV** : int
 - Description : Field of view of camera in degrees.
+
+## Sampling Options
+The `processing/config.ini` file contains these parameters for sampling from the CARLA data, which is then fed to the model. 
+
+**ALL** : bool
+- Description: Sample from all internal and external configurations.
+
+**SPLITS** : 3-tuple of floats
+- Format: "(train, validation, test)". **Must include parentheses and commas.**
+- Description: Proportion of set to be used for train/val/test splits, must sum to 1.
+
+**SAMPLE_SIZE** : int
+- Description: Number of frames to sample for train/val/test sets.
