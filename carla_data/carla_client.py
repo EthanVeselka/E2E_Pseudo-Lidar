@@ -10,7 +10,6 @@ import time
 import datetime
 import os
 import numpy as np
-from pascal_voc_writer import Writer
 import xml.etree.ElementTree as ET
 import configparser
 import threading
@@ -36,6 +35,7 @@ POLL_RATE = float(conf["Settings"]["POLL_RATE"])
 CAMERA_X = int(conf["Settings"]["CAMERA_X"])
 CAMERA_Y = int(conf["Settings"]["CAMERA_Y"])
 CAMERA_FOV = int(conf["Settings"]["CAMERA_FOV"])
+NUM_FRAMES = int(conf["Settings"]["NUM_FRAMES"])
 
 EGO_BEHAVIOR = conf["Internal Variables"]["EGO_BEHAVIOR"]
 EXTERNAL_BEHAVIOR = conf["External Variables"]["EXTERNAL_BEHAVIOR"]
@@ -736,7 +736,9 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
         global actors
         actors = world.world.get_actors()
         
-        while num_ticks < 2000:
+        settings = world.world.get_settings()
+        total_ticks = (NUM_FRAMES * 1/settings.fixed_delta_seconds) / POLL_RATE
+        while num_ticks < total_ticks:
             clock.tick()
            
             if not args.asynch:
@@ -764,7 +766,7 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
                     s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
                     s_lidar_bp.set_attribute('lower_fov', str(-30.0))
                     s_lidar_bp.set_attribute('upper_fov', str(30.0))
-                    s_lidar_bp.set_attribute('points_per_second', str(1792000))
+                    s_lidar_bp.set_attribute('points_per_second', str(1800000))
                     s_lidar_bp.set_attribute('channels', str(256.0)) 
                     transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
