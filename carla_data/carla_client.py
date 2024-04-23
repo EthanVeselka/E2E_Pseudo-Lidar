@@ -1363,7 +1363,7 @@ def clean_data():
         occlude_tree.write(os.path.join(frame.path, 'obscured_bbs.xml'))
         dynamic_tree.write(os.path.join(frame.path, 'dynamic_bbs.xml'))
     
-    frame_count = len(frames) - deleted_frames
+    frame_count = len(frames) - deleted_frames - 1
     print("deleted frames:", deleted_frames)
     
     key = EGO_BEHAVIOR + "_" + EXTERNAL_BEHAVIOR + "_" + str(WEATHER) + "_" + MAP
