@@ -48,7 +48,14 @@ DEBUG_ON = False
 output_path = ''
 
 position_dict = {}
+actor_bb_dict = {}
 first_data_frame = None
+actors = None
+
+l_rgb_dict = {}
+r_rgb_dict = {}
+d_rgb_dict = {}
+s_lidar_dict = {}
 
 def build_projection_matrix(w, h, fov):
     focal = w / (2.0 * np.tan(fov * np.pi / 360.0))
@@ -336,7 +343,7 @@ def save_boxes(world, sample_path, transform, frame_num):
     bounding_box_set = []
     
     for obj in filters:
-        new_bbs = world.world.get_level_bbs(obj)
+        new_bbs = world.get_level_bbs(obj)
         for bb in new_bbs:
             bounding_box_set.append((obj, bb))
 
@@ -368,168 +375,181 @@ def save_boxes(world, sample_path, transform, frame_num):
 
 def rgb_callback(data, name, episode_path, world, player_transform):
     global first_data_frame
-
     sample_path = os.path.join(episode_path, str(data.frame))
-    #print(sample_path)
+    
+    file_name = '%s.png' % name
+    full_path = os.path.join(sample_path, file_name)
+
+    # data.save_to_disk(full_path)
+    
     if first_data_frame is None:
         first_data_frame = data.frame
-        print('first_data_frame:', first_data_frame)
-    # Folder may already exist
-    try:
-        if not os.path.exists(sample_path):
-            #print(sample_path)
-            os.mkdir(sample_path)
-    except:
-        None
-    finally:
-        file_name = '%s.png' % name
-        full_path = os.path.join(sample_path, file_name)
-        data.save_to_disk(full_path)
         
-        if name == 'left_rgb':
-            #world, sample_path, transform, frame_num
-            save_boxes(world, sample_path, data.transform, data.frame)
+    if name == 'left_rgb':
+        l_rgb_dict[data.frame] = (data, sample_path, full_path)
+    if name == 'right_rgb':
+        r_rgb_dict[data.frame] = (data, sample_path, full_path)
     
 def depth_callback(data, name, episode_path):
-    global position_dict
-    
     sample_path = os.path.join(episode_path, str(data.frame))
-    #print(sample_path)
+
+    file_name = '%s.png' % name
+    full_path = os.path.join(sample_path, file_name)
     
-    # Folder may already exist
-    try:
-        if not os.path.exists(sample_path):
-            #print(sample_path)
-            os.mkdir(sample_path)
-    except:
-        None
-    finally:
-        file_name = '%s.png' % name
-        full_path = os.path.join(sample_path, file_name)
-        data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
+    d_rgb_dict[data.frame] = (data, sample_path, full_path)
     
+    # data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
+
 def lidar_callback(data, name, episode_path, actors, bb_transform_dict):
-    global first_data_frame
-    global position_dict
-
     sample_path = os.path.join(episode_path, str(data.frame))
+
+    file_name = '%s.ply' % name
+    full_path = os.path.join(sample_path, file_name)
     
+    s_lidar_dict[data.frame] = (data, sample_path, full_path)    
+
+def start_process(name, data_dict, process_function, world):
+    sub_process_threads = []
+    for key, value in data_dict.items():
+        sub_process_threads.append(threading.Thread(target=process_function, args=(name, value[0], value[1], value[2], world)))
+        
+    for thread in sub_process_threads:
+        thread.start()
+    
+    for thread in sub_process_threads:
+        thread.join()
+
+def rgb_process(name, data, sample_path, full_path, world):
     try:
         if not os.path.exists(sample_path):
-            #print(sample_path)
             os.mkdir(sample_path)
     except:
         None
-    finally:
-        # Save semantic lidar data to path
-        file_name = '%s.ply' % name
-        full_path = os.path.join(sample_path, file_name)
-        
-        # new_data = carla.SemanticLidarMeasurement()
-        with open(full_path, 'w') as file:
-            file.write("ply\n"
-           "format ascii 1.0\n"
-           "element vertex 7018\n"
-           "property float32 x\n"
-           "property float32 y\n"
-           "property float32 z\n"
-           "property float32 CosAngle\n"
-           "property uint32 ObjIdx\n"
-           "property uint32 ObjTag\n"
-           "end_header\n")
-            
-            for point in data:
-                file.write(str(point.point.x) + " "  + 
-                           str(point.point.y * -1.0) + " " + 
-                           str(point.point.z) + " " +
-                           str(point.cos_inc_angle) + " " +
-                           str(point.object_idx) + " " +
-                           str(point.object_tag) + "\n")
 
-        # data.save_to_disk(full_path)
-        
-        actor_set = set()
-        
-        # Get unique actors from lidar data
-        for point in data:
-            if point.object_idx:
-                actor_set.add(point.object_idx)
-        
-        # All unique edges needed to create bounding box
-        edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
-        camera_transform = data.transform
-        # get accurate camera position from position_dict
-        for i in range(2):
-            try:
-                saved_frame_num = data.frame - first_data_frame+1
-                if first_data_frame is not None and saved_frame_num in position_dict:
-                    camera_transform = position_dict[saved_frame_num]
-                    break
-                else:
-                    time.sleep(1)
-            except:
-                time.sleep(1)
-        
-        world_2_camera = np.array(camera_transform.get_inverse_matrix())
-        K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
-        
-        root = ET.Element("DynamicBoundingBoxes")
-        tree = ET.ElementTree(root)
+    data.save_to_disk(full_path)
+    
+    if name == 'left_rgb':
+        save_boxes(world, sample_path, data.transform, data.frame)
 
-        for actor_id in actor_set:
-            actor = actors.find(actor_id)
-            
-            # Filter ego vehicle out of bounding box output
-            if (actor.attributes.get('role_name') == 'hero'):
-                continue
-            
-            bbox_elem = ET.SubElement(root, "BoundingBox")
-            # bbox_elem.set("class", str(type(actor)).split("'")[1])
-            
-            if "base_type" in actor.attributes and actor.attributes["base_type"] != "":
-                bbox_elem.set("class", actor.attributes["base_type"].capitalize())
+def depth_process(name, data, sample_path, full_path, world):
+    try:
+        if not os.path.exists(sample_path):
+            os.mkdir(sample_path)
+    except:
+        None
+        
+    data.save_to_disk(full_path, color_converter=carla.ColorConverter.Depth)
+
+def lidar_process(name, data, sample_path, full_path, world):
+    try:
+        if not os.path.exists(sample_path):
+            os.mkdir(sample_path)
+    except:
+        None
+        
+    with open(full_path, 'w') as file:
+                    file.write("ply\n"
+                    "format ascii 1.0\n"
+                    "element vertex " + str(len(data)) + "\n"
+                    "property float32 x\n"
+                    "property float32 y\n"
+                    "property float32 z\n"
+                    "property float32 CosAngle\n"
+                    "property uint32 ObjIdx\n"
+                    "property uint32 ObjTag\n"
+                    "end_header\n")
+                    
+                    for point in data:
+                        file.write(str(point.point.x) + " "  + 
+                                    str(point.point.y * -1.0) + " " + 
+                                    str(point.point.z) + " " +
+                                    str(point.cos_inc_angle) + " " +
+                                    str(point.object_idx) + " " +
+                                    str(point.object_tag) + "\n")
+    actor_set = set()
+    
+    try:
+        bb_transform_dict = actor_bb_dict[data.frame]
+    except:
+        print("Frame", data.frame, "missing from actor_bb_dict")
+        return
+        
+    # Get unique actors from lidar data
+    for point in data:
+        if point.object_idx:
+            actor_set.add(point.object_idx)
+    
+    # All unique edges needed to create bounding box
+    edges = [[0,1], [1,3], [3,2], [2,0], [0,4], [4,5], [5,1], [5,7], [7,6], [6,4], [6,2], [7,3]]
+    camera_transform = data.transform
+    # get accurate camera position from position_dict
+    for i in range(2):
+        try:
+            saved_frame_num = data.frame - first_data_frame+1
+            if first_data_frame is not None and saved_frame_num in position_dict:
+                camera_transform = position_dict[saved_frame_num]
+                break
             else:
-                bbox_elem.set("class", str(type(actor)).split("'")[1].split(".")[-1])
-                
-            position_transform = bb_transform_dict[actor_id][1]
+                time.sleep(1)
+        except:
+            time.sleep(1)
+    
+    world_2_camera = np.array(camera_transform.get_inverse_matrix())
+    K = build_projection_matrix(CAMERA_X, CAMERA_Y, CAMERA_FOV)
+    
+    root = ET.Element("DynamicBoundingBoxes")
+    tree = ET.ElementTree(root)
 
-            good_frame = False
-            world_2_camera = np.array(data.transform.get_inverse_matrix())
-            
-            for i in range(2):
-                if first_data_frame is None:
-                    print('no first frame')
-                    time.sleep(1)
-                    continue
-                saved_frame_num = data.frame-first_data_frame + 1
-                if saved_frame_num not in position_dict:
-                    print('not in dict')
-                    time.sleep(1)
-                    continue
-                good_frame = True
-                world_2_camera = np.array(position_dict[saved_frame_num].get_inverse_matrix())
-
-            if not good_frame:
-                #print('lidar frame oofed:', data.frame)
-                pass
-            
-            
-            bbox_elem.set("actorId", str(actor_id))
-
-            bb = bb_transform_dict[actor_id][0]
-            object_transform = bb_transform_dict[actor_id][1]
-
-            save_box(bb, bbox_elem, camera_transform, world_2_camera, object_transform)
+    for actor_id in actor_set:
+        actor = actors.find(actor_id)
         
-        # Save the bounding boxes in the scene
-        filename = 'dynamic_bbs.xml'
-        file_path = os.path.join(sample_path, filename)
-        indent(root)
-        tree.write(file_path)
-    
+        # Filter ego vehicle out of bounding box output
+        if (actor.attributes.get('role_name') == 'hero'):
+            continue
+        
+        bbox_elem = ET.SubElement(root, "BoundingBox")
+        # bbox_elem.set("class", str(type(actor)).split("'")[1])
+        
+        if "base_type" in actor.attributes and actor.attributes["base_type"] != "":
+            bbox_elem.set("class", actor.attributes["base_type"].capitalize())
+        else:
+            bbox_elem.set("class", str(type(actor)).split("'")[1].split(".")[-1])
+            
+        position_transform = bb_transform_dict[actor_id][1]
 
+        good_frame = False
+        world_2_camera = np.array(data.transform.get_inverse_matrix())
+        
+        for i in range(2):
+            if first_data_frame is None:
+                print('no first frame')
+                time.sleep(1)
+                continue
+            saved_frame_num = data.frame-first_data_frame + 1
+            if saved_frame_num not in position_dict:
+                print('not in dict')
+                time.sleep(1)
+                continue
+            good_frame = True
+            world_2_camera = np.array(position_dict[saved_frame_num].get_inverse_matrix())
+
+        if not good_frame:
+            #print('lidar frame oofed:', data.frame)
+            pass
+        
+        
+        bbox_elem.set("actorId", str(actor_id))
+
+        bb = bb_transform_dict[actor_id][0]
+        object_transform = bb_transform_dict[actor_id][1]
+
+        save_box(bb, bbox_elem, camera_transform, world_2_camera, object_transform)
     
- 
+    # Save the bounding boxes in the scene
+    filename = 'dynamic_bbs.xml'
+    file_path = os.path.join(sample_path, filename)
+    indent(root)
+    tree.write(file_path)
 
 def prep_episode(client, args, iteration_name, episode_name): # uses code from automatic_control.py and generate_traffic.py
     """
@@ -713,7 +733,10 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
         s_lidar = None
         main_cam = sensors[0]
         
-        while num_ticks < 200:
+        global actors
+        actors = world.world.get_actors()
+        
+        while num_ticks < 2000:
             clock.tick()
            
             if not args.asynch:
@@ -723,6 +746,9 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
                     if position_dict[num_ticks-1].location == position_dict[num_ticks].location:
                         #print('is still')
                         pass
+                
+                frame_num = world.world.get_snapshot().frame
+                actor_bb_dict[frame_num] = {actor.id: (actor.bounding_box, actor.get_transform()) for actor in world.world.get_actors()}
 
                 #print(position_dict.keys())
                 world.world.tick()
@@ -738,8 +764,8 @@ def sim_episode(client, args, iteration_name, episode_name): # uses code from au
                     s_lidar_bp.set_attribute('sensor_tick', str(1/POLL_RATE))
                     s_lidar_bp.set_attribute('lower_fov', str(-30.0))
                     s_lidar_bp.set_attribute('upper_fov', str(30.0))
-                    s_lidar_bp.set_attribute('points_per_second', str(448000))
-                    s_lidar_bp.set_attribute('channels', str(64.0)) 
+                    s_lidar_bp.set_attribute('points_per_second', str(1792000))
+                    s_lidar_bp.set_attribute('channels', str(256.0)) 
                     transform = carla.Transform(carla.Location(x=0.60, y=-0.25, z=1.8), carla.Rotation(pitch=0, yaw=0.0, roll=0.0))
                     s_lidar = world.world.spawn_actor(s_lidar_bp, transform, attach_to=world.player, attachment_type=carla.AttachmentType.Rigid)
                     
@@ -1225,6 +1251,18 @@ def main():
         time.sleep(0.5)
         
         if output_path:
+            process_threads = []
+            process_threads.append(threading.Thread(target=start_process, args=("left_rgb", l_rgb_dict, rgb_process, world)))
+            process_threads.append(threading.Thread(target=start_process, args=("right_rgb", r_rgb_dict, rgb_process, world)))
+            process_threads.append(threading.Thread(target=start_process, args=("depth", d_rgb_dict, depth_process, world)))
+            process_threads.append(threading.Thread(target=start_process, args=("lidar", s_lidar_dict, lidar_process, world)))
+            
+            for thread in process_threads:
+                thread.start()
+            
+            for thread in process_threads:
+                thread.join()
+            
             clean_data()
             write_episode_kitti(output_path)
 
