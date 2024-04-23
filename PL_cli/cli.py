@@ -39,7 +39,6 @@ def main():
             if option == "sampling":
                 file_path = "processing/config.ini"
 
-
             while True:
                 key = click.prompt("Enter the key to modify, or enter 'done' to stop")
 
@@ -77,28 +76,6 @@ def main():
                     click.echo("")
 
             continue
-     
-        # if command == "run":
-        #     option = ""
-        #     while option not in ["data collection", "cancel"]:
-        #         option = click.prompt("Which script would you like to run? (Data collection / Cancel)", type=str).lower()
-        #         if option == "cancel":
-        #             break
-
-        #         if option == "help":
-        #             click.echo("Options: Data collection, Cancel")
-        #             continue
-
-        #         if option == "data collection":
-        #             click.echo("Running carla_data/carla_client.py ...")
-                    
-        #             # run data collection script
-        #             try:
-        #                 run_script("carla_data\carla_client.py")
-        #             except Exception as e:
-        #                 click.echo(f"Error: {e}")
-
-        #             break
 
         if command == "collect":
             click.echo("Do you want to run the data collection script? (y/n)")
@@ -109,6 +86,22 @@ def main():
                 # run data collection script
                 try:
                     run_script("carla_data\carla_client.py")
+                except Exception as e:
+                    click.echo(f"Error: {e}")
+
+                break
+            else:
+                continue
+
+        if command == "view":
+            click.echo("Do you want to run the data viewer? (y/n)")
+            response = click.prompt("")
+            if response in ["y", "yes", "Y", "Yes"]:
+                click.echo("Running carla_data/data_viewer.py ...")
+                        
+                # run data viewer script
+                try:
+                    run_script("carla_data\data_viewer.py")
                 except Exception as e:
                     click.echo(f"Error: {e}")
 
