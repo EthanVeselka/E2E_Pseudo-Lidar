@@ -109,6 +109,7 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
         os.chdir("../")
 
     # randomly sample indices from directories
+
     assert len(frames) >= SAMPLE_SIZE
     random_indices = random.sample(range(len(frames)), SAMPLE_SIZE)
     random.shuffle(random_indices)

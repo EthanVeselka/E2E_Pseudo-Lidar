@@ -25,6 +25,7 @@ def project_disp_to_points(calib, disp, max_high):
     points = points[mask.reshape(-1)]
     cloud = calib.project_image_to_velo(points)
     valid = (cloud[:, 0] >= 0) & (cloud[:, 2] < max_high)
+    print(np.array(valid).sum())
     return cloud[valid]
 
 

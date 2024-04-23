@@ -30,6 +30,8 @@ def clean_output(datapath):
             continue
         if episode == "calibmatrices.txt":
             continue
+        if episode == "config.ini":
+            continue
 
         os.chdir(episode)
         curr_dir = os.path.join(datapath, episode)
@@ -37,7 +39,6 @@ def clean_output(datapath):
         for iteration in os.listdir(curr_dir):
             if iteration == config:
                 continue
-            print(os.getcwd())
             os.chdir(iteration)
             curr_dir = os.path.join(curr_dir, iteration)
 
@@ -61,7 +62,7 @@ def clean_output(datapath):
             os.chdir("../../")
         os.chdir("../../")
 
-    os.chdir("../../../../output")
+    os.chdir("output")
     if os.path.exists("train.csv"):
         os.remove("train.csv")
     if os.path.exists("val.csv"):

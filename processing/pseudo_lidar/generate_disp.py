@@ -16,6 +16,7 @@ import processing.pseudo_lidar.calib_utils as calib_utils
 
 def generate_disparity_from_velo(pc_velo, height, width, calib):
     pts_2d = calib.project_velo_to_image(pc_velo)
+    print(pts_2d)
     fov_inds = (
         (pts_2d[:, 0] < width - 1)
         & (pts_2d[:, 0] >= 0)
@@ -23,6 +24,7 @@ def generate_disparity_from_velo(pc_velo, height, width, calib):
         & (pts_2d[:, 1] >= 0)
     )
     fov_inds = fov_inds & (pc_velo[:, 0] > 2)
+
     imgfov_pc_velo = pc_velo[fov_inds, :]
     imgfov_pts_2d = pts_2d[fov_inds, :]
     imgfov_pc_rect = calib.project_velo_to_rect(imgfov_pc_velo)
