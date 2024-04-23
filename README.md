@@ -49,13 +49,20 @@ The `carla_data/config.ini` file contains these parameters for collecting frames
 - Description : Rate at which sensors will output data per second.
 
 **CAMERA_X** : int
-- Description : Horizontal camera resolution.
+- Description : Horizontal camera resolution. (calibmatrices dependency)
 
 **CAMERA_Y** : int
-- Description : Vertical camera resolution.
+- Description : Vertical camera resolution. (calibmatrices dependency)
 
 **CAMERA_FOV** : int
 - Description : Field of view of camera in degrees.
+
+**NUM_FRAMES** : int
+- Description : Specify the number of frames to collect for the simulation (simulation length).
+
+## Camera Calibration Matrices
+The `carla_data/calibmatrices.txt` file contains the parameters for respective sensor coordinate systems
+- Description : Depends on the values of CAMERA_x and CAMERA_Y
 
 ## Sampling Options
 The `processing/config.ini` file contains these parameters for sampling from the CARLA data, which is then fed to the model. 
