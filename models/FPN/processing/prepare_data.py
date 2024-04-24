@@ -48,7 +48,7 @@ def extract_pc_in_box2d(pc, box2d):
     box2d_roi_inds = in_hull(pc[:, 0:2], box2d_corners)
     return pc[box2d_roi_inds, :], box2d_roi_inds
 
-
+# Requires mayavi
 def demo(idx_filename="train.csv"):
     import mayavi.mlab as mlab
     from viz_util import draw_lidar, draw_lidar_simple, draw_gt_boxes3d
@@ -405,221 +405,221 @@ def get_box3d_dim_statistics(idx_filename):
         pickle.dump(ry_list, fp)
 
 
-def read_det_file(det_filename):
-    """Parse lines in 2D detection output files"""
-    det_id2str = {1: "Walker", 2: "Car", 3: "Cyclist"}
-    id_list = []
-    type_list = []
-    prob_list = []
-    box2d_list = []
-    for line in open(det_filename, "r"):
-        t = line.rstrip().split(" ")
-        id_list.append(int(os.path.basename(t[0]).rstrip(".png")))
-        type_list.append(det_id2str[int(t[1])])
-        prob_list.append(float(t[2]))
-        box2d_list.append(np.array([float(t[i]) for i in range(3, 7)]))
-    return id_list, type_list, box2d_list, prob_list
+# def read_det_file(det_filename):
+#     """Parse lines in 2D detection output files"""
+#     det_id2str = {1: "Walker", 2: "Car", 3: "Cyclist"}
+#     id_list = []
+#     type_list = []
+#     prob_list = []
+#     box2d_list = []
+#     for line in open(det_filename, "r"):
+#         t = line.rstrip().split(" ")
+#         id_list.append(int(os.path.basename(t[0]).rstrip(".png")))
+#         type_list.append(det_id2str[int(t[1])])
+#         prob_list.append(float(t[2]))
+#         box2d_list.append(np.array([float(t[i]) for i in range(3, 7)]))
+#     return id_list, type_list, box2d_list, prob_list
 
 
 # Not adjusted for carla_data structure
-def extract_frustum_data_rgb_detection(
-    det_filename,
-    split,
-    output_filename,
-    viz=False,
-    type_whitelist=["Car"],
-    img_height_threshold=25,
-    lidar_point_threshold=5,
-):
-    """Extract point clouds in frustums extruded from 2D detection boxes.
-        Update: Lidar points and 3d boxes are in *rect camera* coord system
-            (as that in 3d box label files)
+# def extract_frustum_data_rgb_detection(
+#     det_filename,
+#     split,
+#     output_filename,
+#     viz=False,
+#     type_whitelist=["Car"],
+#     img_height_threshold=25,
+#     lidar_point_threshold=5,
+# ):
+#     """Extract point clouds in frustums extruded from 2D detection boxes.
+#         Update: Lidar points and 3d boxes are in *rect camera* coord system
+#             (as that in 3d box label files)
 
-    Input:
-        det_filename: string, each line is
-            img_path typeid confidence xmin ymin xmax ymax
-        split: string, either trianing or testing
-        output_filename: string, the name for output .pickle file
-        type_whitelist: a list of strings, object types we are interested in.
-        img_height_threshold: int, neglect image with height lower than that.
-        lidar_point_threshold: int, neglect frustum with too few points.
-    Output:
-        None (will write a .pickle file to the disk)
-    """
-    dataset = FPNDataset(
-        os.path.join(ROOT_DIR, "carla_data/data"),
-        split,
-        idx_filename=det_filename,
-    )
+#     Input:
+#         det_filename: string, each line is
+#             img_path typeid confidence xmin ymin xmax ymax
+#         split: string, either trianing or testing
+#         output_filename: string, the name for output .pickle file
+#         type_whitelist: a list of strings, object types we are interested in.
+#         img_height_threshold: int, neglect image with height lower than that.
+#         lidar_point_threshold: int, neglect frustum with too few points.
+#     Output:
+#         None (will write a .pickle file to the disk)
+#     """
+#     dataset = FPNDataset(
+#         os.path.join(ROOT_DIR, "carla_data/data"),
+#         split,
+#         idx_filename=det_filename,
+#     )
 
-    det_id_list, det_type_list, det_box2d_list, det_prob_list = read_det_file(
-        det_filename
-    )
+#     det_id_list, det_type_list, det_box2d_list, det_prob_list = read_det_file(
+#         det_filename
+#     )
 
-    cache_id = -1
-    cache = None
+#     cache_id = -1
+#     cache = None
 
-    id_list = []
-    type_list = []
-    box2d_list = []
-    prob_list = []
-    input_list = []  # channel number = 4, xyz,intensity in rect camera coord
-    frustum_angle_list = []  # angle of 2d box center from pos x-axis
+#     id_list = []
+#     type_list = []
+#     box2d_list = []
+#     prob_list = []
+#     input_list = []  # channel number = 4, xyz,intensity in rect camera coord
+#     frustum_angle_list = []  # angle of 2d box center from pos x-axis
 
-    for det_idx in range(len(det_id_list)):
-        data_idx = det_id_list[det_idx]
-        print("det idx: %d/%d, data idx: %d" % (det_idx, len(det_id_list), data_idx))
-        if cache_id != data_idx:
-            calib = dataset.get_calibration(data_idx)  # 3 by 4 matrix
-            pc_velo = dataset.get_lidar(data_idx)
-            pc_rect = np.zeros_like(pc_velo)
-            pc_rect[:, 0:3] = calib.project_velo_to_rect(pc_velo[:, 0:3])
-            pc_rect[:, 3] = pc_velo[:, 3]
-            img = dataset.get_image(data_idx)
-            img_height, img_width, img_channel = img.shape
-            imgfov_pc_velo, pc_image_coord, img_fov_inds = get_lidar_in_image_fov(
-                pc_velo[:, 0:3], calib, 0, 0, img_width, img_height, True
-            )
-            cache = [calib, pc_rect, pc_image_coord, img_fov_inds]
-            cache_id = data_idx
-        else:
-            calib, pc_rect, pc_image_coord, img_fov_inds = cache
+#     for det_idx in range(len(det_id_list)):
+#         data_idx = det_id_list[det_idx]
+#         print("det idx: %d/%d, data idx: %d" % (det_idx, len(det_id_list), data_idx))
+#         if cache_id != data_idx:
+#             calib = dataset.get_calibration(data_idx)  # 3 by 4 matrix
+#             pc_velo = dataset.get_lidar(data_idx)
+#             pc_rect = np.zeros_like(pc_velo)
+#             pc_rect[:, 0:3] = calib.project_velo_to_rect(pc_velo[:, 0:3])
+#             pc_rect[:, 3] = pc_velo[:, 3]
+#             img = dataset.get_image(data_idx)
+#             img_height, img_width, img_channel = img.shape
+#             imgfov_pc_velo, pc_image_coord, img_fov_inds = get_lidar_in_image_fov(
+#                 pc_velo[:, 0:3], calib, 0, 0, img_width, img_height, True
+#             )
+#             cache = [calib, pc_rect, pc_image_coord, img_fov_inds]
+#             cache_id = data_idx
+#         else:
+#             calib, pc_rect, pc_image_coord, img_fov_inds = cache
 
-        if det_type_list[det_idx] not in type_whitelist:
-            continue
+#         if det_type_list[det_idx] not in type_whitelist:
+#             continue
 
-        # 2D BOX: Get pts rect backprojected
-        xmin, ymin, xmax, ymax = det_box2d_list[det_idx]
-        box_fov_inds = (
-            (pc_image_coord[:, 0] < xmax)
-            & (pc_image_coord[:, 0] >= xmin)
-            & (pc_image_coord[:, 1] < ymax)
-            & (pc_image_coord[:, 1] >= ymin)
-        )
-        box_fov_inds = box_fov_inds & img_fov_inds
-        pc_in_box_fov = pc_rect[box_fov_inds, :]
-        # Get frustum angle (according to center pixel in 2D BOX)
-        box2d_center = np.array([(xmin + xmax) / 2.0, (ymin + ymax) / 2.0])
-        uvdepth = np.zeros((1, 3))
-        uvdepth[0, 0:2] = box2d_center
-        uvdepth[0, 2] = 20  # some random depth
-        box2d_center_rect = calib.project_image_to_rect(uvdepth)
-        frustum_angle = -1 * np.arctan2(
-            box2d_center_rect[0, 2], box2d_center_rect[0, 0]
-        )
+#         # 2D BOX: Get pts rect backprojected
+#         xmin, ymin, xmax, ymax = det_box2d_list[det_idx]
+#         box_fov_inds = (
+#             (pc_image_coord[:, 0] < xmax)
+#             & (pc_image_coord[:, 0] >= xmin)
+#             & (pc_image_coord[:, 1] < ymax)
+#             & (pc_image_coord[:, 1] >= ymin)
+#         )
+#         box_fov_inds = box_fov_inds & img_fov_inds
+#         pc_in_box_fov = pc_rect[box_fov_inds, :]
+#         # Get frustum angle (according to center pixel in 2D BOX)
+#         box2d_center = np.array([(xmin + xmax) / 2.0, (ymin + ymax) / 2.0])
+#         uvdepth = np.zeros((1, 3))
+#         uvdepth[0, 0:2] = box2d_center
+#         uvdepth[0, 2] = 20  # some random depth
+#         box2d_center_rect = calib.project_image_to_rect(uvdepth)
+#         frustum_angle = -1 * np.arctan2(
+#             box2d_center_rect[0, 2], box2d_center_rect[0, 0]
+#         )
 
-        # Pass objects that are too small
-        if (
-            ymax - ymin < img_height_threshold
-            or len(pc_in_box_fov) < lidar_point_threshold
-        ):
-            continue
+#         # Pass objects that are too small
+#         if (
+#             ymax - ymin < img_height_threshold
+#             or len(pc_in_box_fov) < lidar_point_threshold
+#         ):
+#             continue
 
-        id_list.append(data_idx)
-        type_list.append(det_type_list[det_idx])
-        box2d_list.append(det_box2d_list[det_idx])
-        prob_list.append(det_prob_list[det_idx])
-        input_list.append(pc_in_box_fov)
-        frustum_angle_list.append(frustum_angle)
+#         id_list.append(data_idx)
+#         type_list.append(det_type_list[det_idx])
+#         box2d_list.append(det_box2d_list[det_idx])
+#         prob_list.append(det_prob_list[det_idx])
+#         input_list.append(pc_in_box_fov)
+#         frustum_angle_list.append(frustum_angle)
 
-    with open(output_filename, "wb") as fp:
-        pickle.dump(id_list, fp)
-        pickle.dump(box2d_list, fp)
-        pickle.dump(input_list, fp)
-        pickle.dump(type_list, fp)
-        pickle.dump(frustum_angle_list, fp)
-        pickle.dump(prob_list, fp)
+#     with open(output_filename, "wb") as fp:
+#         pickle.dump(id_list, fp)
+#         pickle.dump(box2d_list, fp)
+#         pickle.dump(input_list, fp)
+#         pickle.dump(type_list, fp)
+#         pickle.dump(frustum_angle_list, fp)
+#         pickle.dump(prob_list, fp)
 
-    if viz:
-        import mayavi.mlab as mlab
+#     if viz:
+#         import mayavi.mlab as mlab
 
-        for i in range(10):
-            p1 = input_list[i]
-            fig = mlab.figure(
-                figure=None,
-                bgcolor=(0.4, 0.4, 0.4),
-                fgcolor=None,
-                engine=None,
-                size=(500, 500),
-            )
-            mlab.points3d(
-                p1[:, 0],
-                p1[:, 1],
-                p1[:, 2],
-                p1[:, 1],
-                mode="point",
-                colormap="gnuplot",
-                scale_factor=1,
-                figure=fig,
-            )
-            fig = mlab.figure(
-                figure=None,
-                bgcolor=(0.4, 0.4, 0.4),
-                fgcolor=None,
-                engine=None,
-                size=(500, 500),
-            )
-            mlab.points3d(
-                p1[:, 2],
-                -p1[:, 0],
-                -p1[:, 1],
-                seg,
-                mode="point",
-                colormap="gnuplot",
-                scale_factor=1,
-                figure=fig,
-            )
-            raw_input()
+#         for i in range(10):
+#             p1 = input_list[i]
+#             fig = mlab.figure(
+#                 figure=None,
+#                 bgcolor=(0.4, 0.4, 0.4),
+#                 fgcolor=None,
+#                 engine=None,
+#                 size=(500, 500),
+#             )
+#             mlab.points3d(
+#                 p1[:, 0],
+#                 p1[:, 1],
+#                 p1[:, 2],
+#                 p1[:, 1],
+#                 mode="point",
+#                 colormap="gnuplot",
+#                 scale_factor=1,
+#                 figure=fig,
+#             )
+#             fig = mlab.figure(
+#                 figure=None,
+#                 bgcolor=(0.4, 0.4, 0.4),
+#                 fgcolor=None,
+#                 engine=None,
+#                 size=(500, 500),
+#             )
+#             mlab.points3d(
+#                 p1[:, 2],
+#                 -p1[:, 0],
+#                 -p1[:, 1],
+#                 seg,
+#                 mode="point",
+#                 colormap="gnuplot",
+#                 scale_factor=1,
+#                 figure=fig,
+#             )
+#             raw_input()
 
 
 # Not adjusted for carla_data structure
-def write_2d_rgb_detection(det_filename, split, result_dir):
-    """Write 2D detection results for KITTI evaluation.
-        Convert from Wei's format to KITTI format.
+# def write_2d_rgb_detection(det_filename, split, result_dir):
+#     """Write 2D detection results for KITTI evaluation.
+#         Convert from Wei's format to KITTI format.
 
-    Input:
-        det_filename: string, each line is
-            img_path typeid confidence xmin ymin xmax ymax
-        split: string, either trianing or testing
-        result_dir: string, folder path for results dumping
-    Output:
-        None (will write <xxx>.txt files to disk)
+#     Input:
+#         det_filename: string, each line is
+#             img_path typeid confidence xmin ymin xmax ymax
+#         split: string, either trianing or testing
+#         result_dir: string, folder path for results dumping
+#     Output:
+#         None (will write <xxx>.txt files to disk)
 
-    Usage:
-        write_2d_rgb_detection("val_det.txt", "training", "results")
-    """
-    dataset = FPNDataset(
-        os.path.join(ROOT_DIR, "carla_data/data"),
-        split,
-        idx_filename=det_filename,
-    )
-    # det_id_list, det_type_list, det_box2d_list, det_prob_list = read_det_file(
-    #     det_filename
-    # )
-    # map from idx to list of strings, each string is a line without \n
-    results = {}
-    for i in range(len(det_id_list)):
-        idx = det_id_list[i]
-        typename = det_type_list[i]
-        box2d = det_box2d_list[i]
-        prob = det_prob_list[i]
-        output_str = typename + " -1 -1 -10 "
-        output_str += "%f %f %f %f " % (box2d[0], box2d[1], box2d[2], box2d[3])
-        output_str += "-1 -1 -1 -1000 -1000 -1000 -10 %f" % (prob)
-        if idx not in results:
-            results[idx] = []
-        results[idx].append(output_str)
-    if not os.path.exists(result_dir):
-        os.mkdir(result_dir)
-    output_dir = os.path.join(result_dir, "data")
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
-    for idx in results:
-        pred_filename = os.path.join(output_dir, "%06d.txt" % (idx))
-        fout = open(pred_filename, "w")
-        for line in results[idx]:
-            fout.write(line + "\n")
-        fout.close()
+#     Usage:
+#         write_2d_rgb_detection("val_det.txt", "training", "results")
+#     """
+#     dataset = FPNDataset(
+#         os.path.join(ROOT_DIR, "carla_data/data"),
+#         split,
+#         idx_filename=det_filename,
+#     )
+#     # det_id_list, det_type_list, det_box2d_list, det_prob_list = read_det_file(
+#     #     det_filename
+#     # )
+#     # map from idx to list of strings, each string is a line without \n
+#     results = {}
+#     for i in range(len(det_id_list)):
+#         idx = det_id_list[i]
+#         typename = det_type_list[i]
+#         box2d = det_box2d_list[i]
+#         prob = det_prob_list[i]
+#         output_str = typename + " -1 -1 -10 "
+#         output_str += "%f %f %f %f " % (box2d[0], box2d[1], box2d[2], box2d[3])
+#         output_str += "-1 -1 -1 -1000 -1000 -1000 -10 %f" % (prob)
+#         if idx not in results:
+#             results[idx] = []
+#         results[idx].append(output_str)
+#     if not os.path.exists(result_dir):
+#         os.mkdir(result_dir)
+#     output_dir = os.path.join(result_dir, "data")
+#     if not os.path.exists(output_dir):
+#         os.mkdir(output_dir)
+#     for idx in results:
+#         pred_filename = os.path.join(output_dir, "%06d.txt" % (idx))
+#         fout = open(pred_filename, "w")
+#         for line in results[idx]:
+#             fout.write(line + "\n")
+#         fout.close()
 
 
 if __name__ == "__main__":
@@ -636,11 +636,6 @@ if __name__ == "__main__":
         help="Generate val split frustum data with GT 2D boxes",
     )
     parser.add_argument(
-        "--gen_val_rgb_detection",
-        action="store_true",
-        help="Generate val split frustum data with RGB detection 2D boxes",
-    )
-    parser.add_argument(
         "--car_only",
         action="store_true",
         help="Only generate cars; otherwise cars, peds and cycs",
@@ -655,6 +650,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Only generate cars; otherwise cars, peds and cycs",
     )
+    # parser.add_argument(
+    #     "--gen_val_rgb_detection",
+    #     action="store_true",
+    #     help="Generate val split frustum data with RGB detection 2D boxes",
+    # )
     args = parser.parse_args()
 
     if args.demo:
@@ -708,12 +708,13 @@ if __name__ == "__main__":
             type_whitelist=type_whitelist,
         )
 
-    if args.gen_val_rgb_detection:
-        extract_frustum_data_rgb_detection(
-            # os.path.join(BASE_DIR, "rgb_detections/rgb_detection_val.txt"),
-            os.path.join(BASE_DIR, "val.csv"),
-            "training",
-            os.path.join(BASE_DIR, output_prefix + "val_rgb_detection.pickle"),
-            viz=False,
-            type_whitelist=type_whitelist,
-        )
+    # Not adjusted for carla_data structure
+    # if args.gen_val_rgb_detection:
+    #     extract_frustum_data_rgb_detection(
+    #         # os.path.join(BASE_DIR, "rgb_detections/rgb_detection_val.txt"),
+    #         os.path.join(BASE_DIR, "val.csv"),
+    #         "training",
+    #         os.path.join(BASE_DIR, output_prefix + "val_rgb_detection.pickle"),
+    #         viz=False,
+    #         type_whitelist=type_whitelist,
+    #     )

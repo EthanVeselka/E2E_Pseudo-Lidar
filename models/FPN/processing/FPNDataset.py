@@ -47,7 +47,8 @@ class FPNDataset(object):
 
     def get_lidar(self, idx):
         assert idx < self.num_samples
-        lidar_filename = os.path.join(self.data[idx], "output/pseudo_lidar.bin")
+        lidar_filename = os.path.join(self.data[idx], "output/pseudo_lidar.bin") # Pseudo-Lidar
+        # lidar_filename = os.path.join(self.data[idx], "left_lidar.ply") # LiDAR
         return utils.load_velo_scan(lidar_filename)
 
     def get_calibration(self, idx):

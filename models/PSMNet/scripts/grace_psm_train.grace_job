@@ -4,7 +4,7 @@
 #SBATCH --get-user-env=L         #Replicate login environment
 #
 ##NECESSARY JOB SPECIFICATIONS
-#SBATCH --job-name=FPN_venv       #Set the job name to "JobName"
+#SBATCH --job-name=grace_setup       #Set the job name to "JobName"
 #SBATCH --time=1:00:00           #Set the wall clock limit to 0hr and 30min
 #SBATCH --ntasks=1               #Request tasks/cores per node
 #SBATCH --mem=8G                 #Request 8GB per node 
@@ -19,22 +19,15 @@
 #
 ##First Executable Line
 #
-module load CUDA/9.0.176
-module load cuDNN/7.0.5-CUDA-9.0.176
-module load GCC/6.4.0-2.28
-module load Python/3.6.4
+module load GCC/11.3.0
+module load CUDA/11.7.0
+module load OpenMPI/4.1.4
+module load TensorFlow/2.11.0-CUDA-11.7.0
+module load PyTorch/1.12.0-CUDA-11.7.0
+module load OpenCV/4.6.0-contrib
+module load scikit-learn/1.1.2
+module load torchvision
 
-# Used for setting up and installing in environment
-# module load GCCcore/6.4.0
-# module load CMake/3.9.5
-
-source venv/bin/activate
-
-cd models/FPN/scripts/
-
-# sh fpn_requirements.sh
-# sh command_prep_data.sh
-sh command_train_v2.sh
-
-deactivate
+# sh train.sh
+sh predict.sh
 

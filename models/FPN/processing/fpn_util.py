@@ -281,21 +281,24 @@ def load_image(img_filename):
 
 
 def load_velo_scan(velo_filename):
-    # lidar = open(velo_filename, "r+")
-    # lines = lidar.readlines()
-    # lines = lines[10:]
+    if velo_filename == "left_lidar.ply":
+        lidar = open(velo_filename, "r+")
+        lines = lidar.readlines()
+        lines = lines[10:]
 
-    # points = []
-    # for line in lines:
-    #     values = line.split()[:4]  # Extract the first 4 values
+        points = []
+        for line in lines:
+            values = line.split()[:4]  # Extract the first 4 values
 
-    #     point = [float(value) for value in values]  # Convert values to floats
-    #     points.append(point)
+            point = [float(value) for value in values]  # Convert values to floats
+            points.append(point)
 
-    # point_cloud = np.array(points)
-    scan = np.fromfile(velo_filename, dtype=np.float32)
-    scan = scan.reshape((-1, 4))
-    return scan
+        scan = np.array(points)
+        return scan
+    else: # .bin file
+        scan = np.fromfile(velo_filename, dtype=np.float32)
+        scan = scan.reshape((-1, 4))
+        return scan
 
 
 def project_to_image(pts_3d, P):

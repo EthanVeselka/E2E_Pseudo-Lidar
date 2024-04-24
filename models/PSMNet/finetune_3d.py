@@ -17,7 +17,7 @@ import torch.nn.functional as F
 BASE_DIR = "../../.."
 sys.path.append(BASE_DIR)
 
-from models.disparity_model.stackhourglass import PSMNet as stackhourglass
+from models.PSMNet.stackhourglass import PSMNet as stackhourglass
 from logger import setup_logger
 import processing.pseudo_lidar.custom_loader as ls
 import processing.pseudo_lidar.custom_dataset as DA
