@@ -5,7 +5,6 @@ from PL_cli.run_script import run_script
 
 @click.command()
 def main():
-    click.echo("")
     click.echo("This is the CLI for the Pseudo-LiDAR project. Type 'help' at any time for a list of options.") 
 
     while True:
@@ -18,7 +17,7 @@ def main():
         if command == "help":
             click.echo("")
             click.echo("edit: Edit a configuration file")
-            click.echo("collect : Run the data collection script")
+            click.echo("collect: Run the data collection script")
             click.echo("view: Run the data viewer")
             click.echo("")
             click.echo("help: Display a helpful message")
@@ -27,17 +26,24 @@ def main():
 
         if command == "edit":
             option = ""
+            
             while True:
-                option = click.prompt("Which config file would you like to edit? (Data collection / Sampling / Cancel / Help)", type=str).lower()
+                option = click.prompt("Which config file would you like to edit? (Data collection / Sampling / Cancel)", type=str).lower()
                 option = option.lower()
 
                 if option in ["cancel", "done", "quit", "exit"]:
                     break
                 elif option == "help":
-                    click.echo("Options: data collection, sampling")
+                    click.echo("Options: Data collection (carla_data/config.ini), Sampling (processing/config.ini)")
                     continue
                 elif option in ["data collection", "sampling"]:
                     while True:
+                        key = click.prompt("Enter the key to modify, or enter 'done' to stop")
+
+                        if key in ["done", "cancel", "exit", "quit"]:
+                            break
+
+                        file_path = ""
                         if option == "data collection":
                             # output contents of config file
                             with open("carla_data/config.ini", "r") as file:
@@ -56,6 +62,10 @@ def main():
                             file_path = "carla_data/config.ini"
 
                         elif option == "sampling":
+                            # output contents of config file
+                            with open("processing/config.ini", "r") as file:
+                                click.echo(file.read())
+                                
                             key = click.prompt("Enter the key to modify, or enter 'done' to stop")
 
                             if key == "done":
@@ -68,7 +78,7 @@ def main():
                                 click.echo("Options: data_path, ego_behavior, external_behavior, weather, map, all, splits, sample_size")
                                 continue
                             file_path = "processing/config.ini"
-
+                        
                         value = click.prompt("Enter the new value for the key")
                         if value == "help":
                             click.echo("Check the README for valid values for each key: https://github.com/EthanVeselka/E2E_Pseudo-Lidar")
@@ -79,14 +89,17 @@ def main():
                         except Exception as e:
                             click.echo(f"Error: {e}")
                             click.echo("")
-
-                continue
+                    break
+                
+                else:
+                    click.echo("Unknown option. Type 'help' for a list of options.")
+                    continue
 
         if command == "collect":
             response = click.prompt("Do you want to run the data collection script? (y/n)")
             if response in ["y", "yes", "Y", "Yes"]:
                 click.echo("Running carla_data/carla_client.py ...")
-                        
+                
                 # run data collection script
                 try:
                     run_script("carla_data\carla_client.py")
