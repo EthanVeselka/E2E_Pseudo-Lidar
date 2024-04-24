@@ -12,6 +12,9 @@
 
 **--sample** | Generates train/val/test splits, saves listfiles to carla_data/output, runs `sample.py`.
 
+`process.grace_job`
+- Description : Loads required modules in grace, runs `process.sh`.
+
 ## Pseudo-Lidar
 
 `gen_pl.sh`
