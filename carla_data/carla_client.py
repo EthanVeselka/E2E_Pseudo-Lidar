@@ -508,14 +508,13 @@ def lidar_process(name, data, sample_path, full_path, world):
             continue
         
         bbox_elem = ET.SubElement(root, "BoundingBox")
-        # bbox_elem.set("class", str(type(actor)).split("'")[1])
         
         if "base_type" in actor.attributes and actor.attributes["base_type"] != "":
-            bbox_elem.set("class", actor.attributes["base_type"].capitalize())
+            actor_label = actor.attributes["base_type"].capitalize()
         else:
-            bbox_elem.set("class", str(type(actor)).split("'")[1].split(".")[-1])
-            
-        position_transform = bb_transform_dict[actor_id][1]
+            actor_label = str(type(actor)).split("'")[1].split(".")[-1]
+        
+        bbox_elem.set("class", actor_label)
 
         good_frame = False
         world_2_camera = np.array(data.transform.get_inverse_matrix())
@@ -539,8 +538,11 @@ def lidar_process(name, data, sample_path, full_path, world):
         
         
         bbox_elem.set("actorId", str(actor_id))
-
+        
         bb = bb_transform_dict[actor_id][0]
+        if actor_label == "Motorcycle" or actor_label == "Bicycle":
+            bb = carla.BoundingBox(carla.Location(0, 0, 0.5*2), carla.Vector3D(x=0.5, y=0.5, z=0.5*2))
+
         object_transform = bb_transform_dict[actor_id][1]
 
         save_box(bb, bbox_elem, camera_transform, world_2_camera, object_transform)
@@ -1009,7 +1011,7 @@ def main():
     walkers_list = []
     all_id = []
     client = carla.Client(args.host, args.port)
-    client.set_timeout(10.0)
+    client.set_timeout(100.0)
     synchronous_master = False
     random.seed(args.seed if args.seed is not None else int(time.time()))
 
