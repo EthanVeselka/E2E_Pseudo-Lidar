@@ -6,7 +6,7 @@ We provide scripts for setting up environments and installing dependencies for t
 # PSMNet
 PSMNet implements the Stackhourglass CNN model that performs estimation of the disparity between a left and right 
 image pair for a frame, using a disparity map generated from the ground truth LiDAR for the frame as the target.
-PSMNet requirements can be found in `grace_psm_train.grace_job`. It uses PyTorch 1.12 and CUDA 11.7
+PSMNet requirements can be found in `grace_psm_train.grace_job`. Uses PyTorch 1.12 and CUDA 11.7
 
 ## Metrics 
 - Average loss
@@ -15,6 +15,8 @@ PSMNet requirements can be found in `grace_psm_train.grace_job`. It uses PyTorch
 ## Preprocessing
 `process.sh`
 - Description : Processing script, specifies processing options outlined below, runs `process.py`.
+
+*Args*:
 
 **--clean** | Cleans frame/output folders (disp/pl/pred_disp).
 

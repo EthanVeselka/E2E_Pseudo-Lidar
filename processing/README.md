@@ -6,6 +6,8 @@
 `process.sh`
 - Description : Processing script, specifies processing options outlined below, runs `process.py`.
 
+*Args*:
+
 **--clean** | Cleans frame/output folders (disp/pl/pred_disp), runs `utils.clean_output`.
 
 **--gen_disp** | Generates disparities for all frames, saves to frame/output, runs `pseudo_lidar/generate_disp.py`.
@@ -19,6 +21,8 @@
 
 `gen_pl.sh`
 - Description : Generates pseudo_lidar using ground truth | predicted disparities, runs `pseudo_lidar/generate_pl.py`.
+
+*Args*:
 
 **--use_pred** | Generate Pseudo-Lidar from predicted disparities [default: False] (Requires PSMNet predicted disparities).
 
