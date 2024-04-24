@@ -215,7 +215,7 @@ def main():
             if args.save_figure:
                 if task == "test":
                     Image.fromarray(img).convert("RGB").save(
-                        save_path + f"/predicted_disp_{frame}.png",
+                        save_path + f"/predicted_disp1_{frame}.png",
                     )
                 else:
                     Image.fromarray(img).convert("RGB").save(

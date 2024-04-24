@@ -192,6 +192,7 @@ def extract_frustum_data(
     Output:
         None (will write a .pickle file to the disk)
     """
+    np.set_printoptions(suppress=True)
     dataset = FPNDataset(
         os.path.join(ROOT_DIR, "carla_data/data"), split, idx_filename
     )
@@ -251,7 +252,7 @@ def extract_frustum_data(
             box2d = objects[obj_idx].box2d
             for _ in range(augmentX):
                 # Augment data by box2d perturbation
-                perturb_box2d = False
+                # perturb_box2d = False
                 if perturb_box2d:
                     xmin, ymin, xmax, ymax = random_shift_box2d(box2d)
                     print(box2d)
@@ -265,12 +266,8 @@ def extract_frustum_data(
                     & (pc_image_coord[:, 1] >= ymin)
                 )
                 
-                # print("box_fov_inds", len([i for i in box_fov_inds if i == True]))
                 box_fov_inds = box_fov_inds & img_fov_inds
                 pc_in_box_fov = pc_rect[box_fov_inds, :]
-                
-                # print('box_fov_inds:', box_fov_inds)
-                # print('pc_in_box_fov:', pc_in_box_fov)
 
                 # Get frustum angle (according to center pixel in 2D BOX)
                 box2d_center = np.array([(xmin + xmax) / 2.0, (ymin + ymax) / 2.0])
@@ -286,6 +283,7 @@ def extract_frustum_data(
                 obj = objects[obj_idx]
                 box3d_pts_2d, box3d_pts_3d = utils.compute_box_3d(obj, calib.P)
                 _, inds = extract_pc_in_box3d(pc_in_box_fov, box3d_pts_3d)
+                print(box3d_pts_3d)
                 label = np.zeros((pc_in_box_fov.shape[0]))
                 label[inds] = 1
                 # Get 3D BOX heading
@@ -318,8 +316,7 @@ def extract_frustum_data(
 
     print("Average pos ratio: %f" % (pos_cnt / float(all_cnt)))
     print("Average npoints: %f" % (float(all_cnt) / len(id_list)))
-    # print("count: ", cnt)
-    print("frame count", len((set(id_list))))
+    print("Saved frame count", len((set(id_list))))
     
     for key, value in obj_dict.items():
         print("Label:", key, "Frames seen:", value[0], "Frames saved:", value[1])

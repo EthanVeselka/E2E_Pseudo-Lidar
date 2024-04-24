@@ -16,7 +16,6 @@ import processing.pseudo_lidar.calib_utils as calib_utils
 
 def generate_disparity_from_velo(pc_velo, height, width, calib):
     pts_2d = calib.project_velo_to_image(pc_velo)
-    print(pts_2d)
     fov_inds = (
         (pts_2d[:, 0] < width - 1)
         & (pts_2d[:, 0] >= 0)
@@ -99,6 +98,8 @@ def generate_disparity(filepath):
                     if not os.path.exists("output"):
                         os.mkdir("output")
                     np.save("output/left_disp.npy", disp)
+        
+                    Image.fromarray(disp).convert("RGB").save("output/disp.png")
 
                     os.chdir("..")
                     

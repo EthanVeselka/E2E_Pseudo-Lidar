@@ -24,7 +24,8 @@ def project_disp_to_points(calib, disp, max_high):
     points = points.T
     points = points[mask.reshape(-1)]
     cloud = calib.project_image_to_velo(points)
-    valid = (cloud[:, 0] >= 0) & (cloud[:, 2] < max_high)
+    valid = (cloud[:, 0] >= 1.68) & (cloud[:, 2] < max_high) # Wall of points at x=1.6666666666667, removed
+
     return cloud[valid]
 
 
@@ -42,7 +43,7 @@ def project_depth_to_points(calib, depth, max_high):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Lidar")
     parser.add_argument("--root_dir", type=str, default="carla_data/data")
-    parser.add_argument("--max_high", type=int, default=1)
+    parser.add_argument("--max_high", type=int, default=5)
     parser.add_argument("--is_depth", action="store_true")
     parser.add_argument("--calib_dir", type=str, default="carla_data/data")
     parser.add_argument(

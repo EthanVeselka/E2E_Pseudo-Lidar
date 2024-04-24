@@ -37,7 +37,7 @@ parser.add_argument(
     "--seed", type=int, default=1, metavar="S", help="random seed (default: 1)"
 )
 parser.add_argument(
-    "--lr_scale", type=int, default=200, metavar="S", help="random seed (default: 1)"
+    "--lr_scale", type=int, default=200, metavar="S", help="lr scale (default: 200)"
 )
 parser.add_argument(
     "--datapath",
