@@ -364,8 +364,6 @@ def train_one_epoch(sess, ops, train_writer):
         iou2ds_sum += np.sum(iou2ds)
         iou3ds_sum += np.sum(iou3ds)
         iou3d_correct_cnt += np.sum(iou3ds >= 0.7)
-        print("iou3ds:", iou3ds)
-        print("iou3d_correct_cnt:", iou3d_correct_cnt)
 
         if (batch_idx + 1) % 10 == 0:
             log_string(" -- %03d / %03d --" % (batch_idx + 1, num_batches))
