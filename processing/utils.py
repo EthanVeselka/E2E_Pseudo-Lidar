@@ -59,10 +59,12 @@ def clean_output(datapath):
                     else:
                         shutil.rmtree(os.path.join(curr_dir, frame, "output"))
                         os.chdir("..")
-            os.chdir("../../")
-        os.chdir("../../")
+                os.chdir("..")
+            os.chdir("..")
+            curr_dir = os.path.join(curr_dir, "../../")
+        os.chdir("..")
 
-    os.chdir("output")
+    os.chdir("../output")
     if os.path.exists("train.csv"):
         os.remove("train.csv")
     if os.path.exists("val.csv"):

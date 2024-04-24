@@ -14,7 +14,7 @@ import importlib
 import numpy as np
 import tensorflow as tf
 import pickle
-import math
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
@@ -111,7 +111,6 @@ def inference(sess, ops, pc, one_hot_vec, batch_size):
     scores = np.zeros((pc.shape[0],)) # 3D box score 
    
     ep = ops['end_points'] 
-    print("num_batches:", num_batches)
     for i in range(num_batches):
         feed_dict = {\
             ops['pointclouds_pl']: pc[i*batch_size:(i+1)*batch_size,...],
@@ -210,7 +209,6 @@ def test_from_rgb_detection(output_filename, result_dir=None):
     onehot_list = []
 
     test_idxs = np.arange(0, len(TEST_DATASET))
-    print(len(TEST_DATASET))
     batch_size = BATCH_SIZE
     num_batches = int((len(TEST_DATASET)+batch_size-1)/batch_size)
     
@@ -218,7 +216,6 @@ def test_from_rgb_detection(output_filename, result_dir=None):
     batch_one_hot_to_feed = np.zeros((batch_size, 3))
     sess, ops = get_session_and_ops(batch_size=batch_size, num_point=NUM_POINT)
     for batch_idx in range(num_batches):
-        print('batch idx: %d' % (batch_idx))
         start_idx = batch_idx * batch_size
         end_idx = min(len(TEST_DATASET), (batch_idx+1) * batch_size)
         cur_batch_size = end_idx - start_idx
@@ -293,26 +290,17 @@ def test(output_filename, result_dir=None):
 
     test_idxs = np.arange(0, len(TEST_DATASET))
     batch_size = BATCH_SIZE
-    num_batches = len(TEST_DATASET)/batch_size
+    num_batches = int(len(TEST_DATASET)/batch_size)
 
-    # sess, ops = get_session_and_ops(batch_size=(end_idx-start_idx), num_point=NUM_POINT)
+    sess, ops = get_session_and_ops(batch_size=batch_size, num_point=NUM_POINT)
     correct_cnt = 0
     print("num_batches:", num_batches)
-    print("int(num_batches):", int(num_batches))
     print("len(TEST_DATASET)", len(TEST_DATASET))
     print("batch_size:", batch_size)
-    for batch_idx in range(math.ceil(num_batches)):
-        print('batch idx: %d' % (batch_idx))
+    for batch_idx in range((num_batches)):
         start_idx = batch_idx * batch_size
         
         end_idx = (batch_idx+1) * batch_size
-        
-        if batch_idx == int(num_batches):
-            end_idx = int((batch_idx+1) * (num_batches * batch_size))
-        
-        sess, ops = get_session_and_ops(batch_size=(end_idx-start_idx), num_point=NUM_POINT)
-        
-        print("end_idx:", end_idx)
 
         batch_data, batch_label, batch_center, \
         batch_hclass, batch_hres, batch_sclass, batch_sres, \
@@ -324,7 +312,7 @@ def test(output_filename, result_dir=None):
         batch_hclass_pred, batch_hres_pred, \
         batch_sclass_pred, batch_sres_pred, batch_scores = \
             inference(sess, ops, batch_data,
-                batch_one_hot_vec, batch_size=(end_idx-start_idx))
+                batch_one_hot_vec, batch_size=batch_size)
 
         correct_cnt += np.sum(batch_output==batch_label)
         
