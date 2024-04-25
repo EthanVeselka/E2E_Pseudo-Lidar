@@ -9,19 +9,23 @@ def main():
 
     while True:
         command = click.prompt("\nEnter a command")
+        command = command.lower()
+        command = command.strip()
 
         if command == "exit":
             click.echo("Exiting...")
             break
 
         if command == "help":
-            click.echo("")
-            click.echo("edit: Edit a configuration file")
-            click.echo("collect: Run the data collection script")
-            click.echo("view: Run the data viewer")
-            click.echo("")
-            click.echo("help: Display a helpful message")
-            click.echo("exit: Close the CLI")
+            click.echo("\n".join([
+                "", 
+                "edit: Edit a configuration file", 
+                "collect: Run the data collection script", 
+                "view: Run the data viewer", 
+                "", 
+                "help: Display a helpful message", 
+                "exit: Close the CLI"
+                ]))
             continue
 
         if command == "edit":
@@ -38,15 +42,11 @@ def main():
                     continue
                 elif option in ["data collection", "sampling"]:
                     while True:
-                        key = click.prompt("Enter the key to modify, or enter 'done' to stop")
-
-                        if key in ["done", "cancel", "exit", "quit"]:
-                            break
-
                         file_path = ""
                         if option == "data collection":
                             # output contents of config file
                             with open("carla_data/config.ini", "r") as file:
+                                click.echo()
                                 click.echo(file.read())
 
                             key = click.prompt("Enter the key to modify, or enter 'done' to stop")
@@ -64,6 +64,7 @@ def main():
                         elif option == "sampling":
                             # output contents of config file
                             with open("processing/config.ini", "r") as file:
+                                click.echo()
                                 click.echo(file.read())
                                 
                             key = click.prompt("Enter the key to modify, or enter 'done' to stop")
@@ -125,5 +126,22 @@ def main():
             else:
                 continue
 
+        if command == "process":
+            response = click.prompt("Do you want to run the processing script? (y/n)")
+            if response in ["y", "yes", "Y", "Yes"]:
+                click.echo("Running processing/scripts/process.sh ...")
+                
+                # run data processing script
+                try:
+                    run_script("processing/scripts/process.sh")
+                except Exception as e:
+                    click.echo(f"Error: {e}")
+
+                break
+            else:
+                continue
+
+        click.echo("Unknown command. Type 'help' for a list of options.")
+        
 if __name__ == "__main__":
     main()

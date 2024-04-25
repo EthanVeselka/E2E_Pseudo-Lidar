@@ -12,12 +12,13 @@ List of commands:
 - edit : Edit the configuration files. Options: `data_collection`, `sampling`
 - collect : Run the data collection script.
 - view : Run the data viewer, allowing you to view the collected data.
+- process : Run the data processing script.
 
 - help : Display a helpful message.
 - exit : Exit the program.
 
-## Universal Options
-These options are found in every config file.
+## Configuration Options
+These options are found in both config files.
 
 **DATA_PATH** : str 
 - Default : /E2E_Pseudo-Lidar/carla_data/data
