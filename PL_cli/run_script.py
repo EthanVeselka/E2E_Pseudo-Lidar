@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-def run_script(file_path: str, arg: str = None):
+def run_script(file_path: str, arg: str=None):
     # change directory to the root of the project
     os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
@@ -18,13 +18,13 @@ def run_script(file_path: str, arg: str = None):
 
     # check last 3 chars of file_path to determine how to run the script
     if file_path[-3:] == ".py" and arg:
-        result = subprocess.run(["python", new_file_path, f"{arg}"], stdout = subprocess.PIPE, universal_newlines = True)
+        result = subprocess.run(["python", new_file_path, f"{arg}"], stdout=subprocess.PIPE, universal_newlines=True)
     if file_path[-3:] == ".py":
-        result = subprocess.run(["python", new_file_path], capture_output=True, text=True)
+        result = subprocess.run(["python", new_file_path], stdout=subprocess.PIPE, universal_newlines=True)
     elif file_path[-3:] == ".sh":
-        result = subprocess.run(["bash", new_file_path], capture_output=True, text=True)
+        result = subprocess.run(["bash", new_file_path], stdout=subprocess.PIPE, universal_newlines=True)
     elif file_path[-4:] == ".bat":
-        result = subprocess.run([new_file_path], capture_output=True, shell=True, text=True)
+        result = subprocess.run([new_file_path], stdout=subprocess.PIPE, universal_newlines=True, shell=True)
     else:
         raise Exception(f"{new_file_path} is an unknown type. Expected .py, .sh, or .bat")
     
