@@ -19,7 +19,7 @@ def run_script(file_path: str, arg: str=None):
     # check last 3 chars of file_path to determine how to run the script
     if file_path[-3:] == ".py" and arg:
         result = subprocess.run(["python", new_file_path, f"{arg}"], stdout=subprocess.PIPE, universal_newlines=True)
-    if file_path[-3:] == ".py":
+    elif file_path[-3:] == ".py":
         result = subprocess.run(["python", new_file_path], stdout=subprocess.PIPE, universal_newlines=True)
     elif file_path[-3:] == ".sh":
         result = subprocess.run(["bash", new_file_path], stdout=subprocess.PIPE, universal_newlines=True)
