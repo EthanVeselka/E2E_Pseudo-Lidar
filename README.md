@@ -33,16 +33,12 @@ These options are found in both config files.
 - Options: normal, aggressive, cautious
 
 **WEATHER** : int
-- Description : Time/Weather preset. Must select a preset from the list below.
-- Options : 1 (ClearNoon), 2 (CloudyNoon), 5 (MidRainyNoon), 8 (ClearSunset), 9 (CloudySunset), 12 (MidRainSunset)
+- Description : Time/Weather preset. Enter an integer from 1-14.
+- https://carla.readthedocs.io/en/stable/carla_settings/#weather-presets
 
-**MAP** : str
-- Description : CARLA town map. Must select a map from the list below.
-- Options : Town01, Town02, Town07
-*Links:*
-- https://carla.readthedocs.io/en/latest/map_town01/
-- https://carla.readthedocs.io/en/latest/map_town02/
-- https://carla.readthedocs.io/en/latest/map_town07/
+**MAP** : int
+- Description : CARLA town map. Enter an integer from 1-12.
+- https://carla.readthedocs.io/en/latest/core_map/#non-layered-maps
 
 ## CARLA Data Collection Options
 The `carla_data/config.ini` file contains these parameters for collecting frames of data from CARLA

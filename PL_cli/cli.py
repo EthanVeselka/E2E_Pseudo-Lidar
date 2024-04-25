@@ -22,6 +22,8 @@ def main():
                 "edit: Edit a configuration file", 
                 "collect: Run the data collection script", 
                 "view: Run the data viewer", 
+                "",
+                "process: Run the data processing scripts to prepare data for training",
                 "", 
                 "help: Display a helpful message", 
                 "exit: Close the CLI"
@@ -98,7 +100,10 @@ def main():
 
         if command == "collect":
             response = click.prompt("Do you want to run the data collection script? (y/n)")
-            if response in ["y", "yes", "Y", "Yes"]:
+            if response.lower() == "help":
+                click.echo("The data collection script will run the CARLA client to collect data. The data will be saved in the specified data_path.")
+                continue
+            if response.lower() in ["y", "yes"]:
                 click.echo("Running carla_data/carla_client.py ...")
                 
                 # run data collection script
@@ -107,13 +112,14 @@ def main():
                 except Exception as e:
                     click.echo(f"Error: {e}")
 
-                break
-            else:
-                continue
-
         if command == "view":
             response = click.prompt("Do you want to run the data viewer? (y/n)")
-            if response in ["y", "yes", "Y", "Yes"]:
+            if response.lower() == "help":
+                click.echo("The data viewer is an interactive tool to view the collected data. You can step through each frame and filter bounding boxes by class.")
+                # TODO: Trevor: Add a description of the data viewer controls here AND in readme
+                continue
+
+            if response.lower() in ["y", "yes"]:
                 click.echo("Running carla_data/data_viewer.py ...")
                         
                 # run data viewer script
@@ -122,24 +128,54 @@ def main():
                 except Exception as e:
                     click.echo(f"Error: {e}")
 
-                break
-            else:
+        if command == "process":
+            response = click.prompt("How do you want to run the processing script? (Clean / Gen Disp / Sample / All / Cancel)")
+            response = response.lower()
+            response = response.strip()
+
+            if response in ["cancel", "done", "quit", "exit"]:
                 continue
 
-        if command == "process":
-            response = click.prompt("Do you want to run the processing script? (y/n)")
-            if response in ["y", "yes", "Y", "Yes"]:
-                click.echo("Running processing/scripts/process.sh ...")
-                
-                # run data processing script
+            if response == "help":
+                click.echo("") # TODO: description
+                continue
+
+            if response == "clean":
+                click.echo("Cleaning frame output folders ...")
                 try:
-                    run_script("processing/scripts/process.sh")
+                    run_script("processing/process.py", "--clean")
                 except Exception as e:
                     click.echo(f"Error: {e}")
-
-                break
-            else:
                 continue
+
+            if response == "gen disp":
+                click.echo("Generating ground-truth disparities for all frames ...")
+                try:
+                    run_script("processing/process.py", "--gen_disp")
+                except Exception as e:
+                    click.echo(f"Error: {e}")
+                continue
+
+            if response == "sample":
+                click.echo("Generating train/val/test splits ...")
+                try:
+                    run_script("processing/process.py", "--sample")
+                except Exception as e:
+                    click.echo(f"Error: {e}")
+                continue
+
+            if response == "all":
+                try:
+                    click.echo("Cleaning frame output folders ...")
+                    run_script("processing/process.py", "--clean")
+                    click.echo("Generating ground-truth disparities for all frames ...")
+                    run_script("processing/process.py", "--gen_disp")
+                    click.echo("Generating train/val/test splits ...")
+                    run_script("processing/process.py", "--sample")
+                except Exception as e:
+                    click.echo(f"Error: {e}")
+                continue
+            
 
         click.echo("Unknown command. Type 'help' for a list of options.")
         
