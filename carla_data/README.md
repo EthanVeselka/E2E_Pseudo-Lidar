@@ -73,9 +73,9 @@ Returns the 2D position of an object with respect to where it would be on a came
 
 **loc** Carla.location | location of point in world-space
 
-**K** numpy.Array (3x3)| Projection matrix of the desired camera
+**K** numpy.Array (3x3) | Projection matrix of the desired camera
 
-**w2c** numpy.Array (3x3)| Transformation matrix for world points into camera points (often from data.transform.get_inverse_matrix())
+**w2c** numpy.Array (3x3) | Transformation matrix for world points into camera points (often from data.transform.get_inverse_matrix())
 
 ### get_camera_point
 Returns the 3D position of an object with respect to the camera. This returns in the Kitti Coordinate system, where +x will be to the right, +y will be down,
