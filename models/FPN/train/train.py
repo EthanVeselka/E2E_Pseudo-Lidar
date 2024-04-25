@@ -29,7 +29,9 @@ parser.add_argument(
     default="frustum_pointnets_v2",
     help="Model name [default: frustum_pointnets_v2]",
 )
-parser.add_argument("--log_dir", default="log", help="Log dir [default: log]")
+parser.add_argument(
+    "--log_dir", default="../train/log_v2", help="Log dir [default: log_v2]"
+)
 parser.add_argument(
     "--num_point", type=int, default=2048, help="Point Number [default: 2048]"
 )

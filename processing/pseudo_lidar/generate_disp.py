@@ -38,7 +38,7 @@ def generate_disparity_from_velo(pc_velo, height, width, calib):
     return disp_map
 
 
-def generate_disparity(filepath):
+def generate_disparity(filepath, image=False):
 
     config = "config.ini"
     calib = calib_utils.Calibration(
@@ -99,7 +99,8 @@ def generate_disparity(filepath):
                         os.mkdir("output")
                     np.save("output/left_disp.npy", disp)
         
-                    Image.fromarray(disp).convert("RGB").save("output/disp.png")
+                    if image:
+                        Image.fromarray(disp).convert("RGB").save("output/disp.png")
 
                     os.chdir("..")
                     

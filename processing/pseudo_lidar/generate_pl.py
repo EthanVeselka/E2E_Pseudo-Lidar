@@ -41,7 +41,8 @@ def project_depth_to_points(calib, depth, max_high):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate Lidar")
+    parser = argparse.ArgumentParser(description="Generate Pseudo Lidar")
+    parser.add_argument("--use_pred", action="store_true", default=False)
     parser.add_argument("--root_dir", type=str, default="carla_data/data")
     parser.add_argument("--max_high", type=int, default=5)
     parser.add_argument("--is_depth", action="store_true")
@@ -56,13 +57,11 @@ if __name__ == "__main__":
     args.listfile_dir = os.path.join(BASE_DIR, args.listfile_dir)
     args.calib_dir = os.path.join(BASE_DIR, args.calib_dir)
     args.root_dir = os.path.join(BASE_DIR, args.root_dir)
+    disp = "predicted_disp.npy" if args.use_pred else "left_disp.npy"
 
     assert os.path.isdir(args.listfile_dir)
     assert os.path.isdir(args.calib_dir)
     assert os.path.isdir(args.root_dir)
-
-    # if not os.path.isdir(args.save_dir):
-    #     os.makedirs(args.save_dir)
 
     calib_file = "{}/{}.txt".format(args.calib_dir, "calibmatrices")
     calib = calib_utils.Calibration(calib_file)
@@ -80,7 +79,8 @@ if __name__ == "__main__":
                 if not os.path.exists(path):
                     os.mkdir(path)
 
-                disp_map = np.load(os.path.join(path, "left_disp.npy"))
+                assert os.path.exists(os.path.join(path, disp))
+                disp_map = np.load(os.path.join(path, disp)) # Use ground truth or predicted disparities
                 disp_map = (disp_map * 256).astype(np.uint16) / 256.0
                 lidar = project_disp_to_points(calib, disp_map, args.max_high)
                 lidar = np.concatenate([lidar, np.ones((lidar.shape[0], 1))], 1)
