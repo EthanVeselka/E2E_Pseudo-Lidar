@@ -53,9 +53,9 @@ Ego-car specific elements are set.
 Implements the main simulation loop. Data will be collected into memory during the simulation, and writen to file once
 the data is collected
 
-# carla_client.py point-calibration functions
+## carla_client.py point-calibration functions
 
-## build_projection_matrix
+### build_projection_matrix
 Returns a projection matrix for a camera, given the camera's width, heigth, and fov
 
 *Arguments*:
@@ -66,7 +66,7 @@ Returns a projection matrix for a camera, given the camera's width, heigth, and 
 
 **fov** int, float | Camera's horizontal fov, given in degrees
 
-## get_image_point
+### get_image_point
 Returns the 2D position of an object with respect to where it would be on a camera's image.
 
 *Arguments*:
@@ -77,7 +77,7 @@ Returns the 2D position of an object with respect to where it would be on a came
 
 **w2c** numpy.Array (3x3)| Transformation matrix for world points into camera points (often from data.transform.get_inverse_matrix())
 
-## get_camera_point
+### get_camera_point
 Returns the 3D position of an object with respect to the camera. This returns in the Kitti Coordinate system, where +x will be to the right, +y will be down,
 and +z will be forward depth.
 
