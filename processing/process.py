@@ -15,6 +15,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sample", action="store_true", help="Generate train/val/test splits"
     )
+    parser.add_argument(
+        "--image", action="store_true", help="Generate disp images"
+    )
 
     config = "config.ini"
     save_file_path = "carla_data/output"
@@ -24,6 +27,6 @@ if __name__ == "__main__":
     if args.clean:
         utils.clean_output(datapath)
     elif args.gen_disp:
-        gd.generate_disparity(datapath)
+        gd.generate_disparity(datapath, args.image)
     elif args.sample:
         sample.sample(config, save_file_path)
