@@ -1,18 +1,18 @@
 Collection of scripts to allow for easy data collection and viewing for computer vision tasks in CARLA
 # Files Included
-**config.ini**
+**config.ini**\
 This is the main file used in carla_data to specify hyperparameters that can be set before a simulation run.
 The values included here are used in carla_client.py and data_viwer.py to set various hyperparameters. These
 values can be set either by modifying the file directly, or by using the PL_cli script to edit the parameters
 from the command line.
 
-**carla_client.py**
+**carla_client.py**\
 This is the main file used to run a simulation epoch. This script will read the parameters set in config.ini, and
 run set the specified paramters to the CARLA server. Before running, first make sure that your CARLA server is running.
 In the current implementation, carla_client.py will gather data from a Semantic Lidar sensor, two camera sensors, and save
 the bounding boxes of various objects. These data will be saved to the save directory specified in the config.ini
 
-**data_viewer.py**
+**data_viewer.py**\
 This script allows the user to view data for a specific run of data
 
 ## Scripts modified from CARLA example scripts
