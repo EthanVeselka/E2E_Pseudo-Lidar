@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-def run_script(file_path: str, arg: str):
+def run_script(file_path: str, arg: str = None):
     # change directory to the root of the project
     os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
