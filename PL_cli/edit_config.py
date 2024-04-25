@@ -87,20 +87,25 @@ def edit_config(key: str, value: str, file_path: str):
             value = int(value)
         except ValueError:
             raise argparse.ArgumentTypeError(f"Value {value} must be an integer.")
-        # must be 1, 2, 5, 8, 9, or 12
-        if int(value) not in [1, 2, 5, 8, 9, 12]:
-            raise argparse.ArgumentTypeError(f"Weather value must be 1, 2, 5, 8, 9, or 12.")
-        
+        # must be between 1 and 14, inclusive
+        if int(value) < 1 or int(value) > 14:
+            raise argparse.ArgumentTypeError(f"Weather value must be between 1 and 14, inclusive.")
         configs["External Variables"]["weather"] = str(value)
 
     # input validation for "map" key
     elif key == "map" and "External Variables" in configs:
-        value = value.capitalize()
-        # must be "Town01", "Town02", "Town07"
-        if value not in ["Town01", "Town02", "Town07"]:
-            raise argparse.ArgumentTypeError(f"Map must be 'Town01', 'Town02', or 'Town07'.")
-
-        configs["External Variables"]["map"] = value
+        # must be an integer
+        try:
+            value = int(value)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"Value {value} must be an integer.")
+        # must be between 1 and 12, inclusive
+        if int(value) < 1 or int(value) > 12:
+            raise argparse.ArgumentTypeError(f"Map value must be between 1 and 12, inclusive.")
+        
+        # format the result to be "Town01" through "Town12"
+        map_string = f"Town0{value}" if value < 10 else f"Town{value}"
+        configs["External Variables"]["map"] = map_string
 
     # input validation for "poll_rate" key
     elif key == "poll_rate" and "Settings" in configs:

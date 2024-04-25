@@ -3,3 +3,4 @@ venv/
 tests/
 dummy_config.ini
 PL_cli/cli_old.py
+pyproject.toml
