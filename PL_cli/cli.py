@@ -16,7 +16,7 @@ def main():
             click.echo("Exiting...")
             break
 
-        if command == "help":
+        elif command == "help":
             click.echo("\n".join([
                 "", 
                 "edit: Edit a configuration file", 
@@ -24,13 +24,14 @@ def main():
                 "view: Run the data viewer", 
                 "",
                 "process: Run the data processing scripts to prepare data for training",
+                "gen-pl: Generate pseudo-lidar data from disparity maps",
                 "", 
                 "help: Display a helpful message", 
                 "exit: Close the CLI"
                 ]))
             continue
 
-        if command == "edit":
+        elif command == "edit":
             option = ""
             
             while True:
@@ -98,7 +99,7 @@ def main():
                     click.echo("Unknown option. Type 'help' for a list of options.")
                     continue
 
-        if command == "collect":
+        elif command == "collect":
             response = click.prompt("Do you want to run the data collection script? (y/n)")
             if response.lower() == "help":
                 click.echo("The data collection script will run the CARLA client to collect data. The data will be saved in the specified data_path.")
@@ -112,7 +113,7 @@ def main():
                 except Exception as e:
                     click.echo(f"Error: {e}")
 
-        if command == "view":
+        elif command == "view":
             response = click.prompt("Do you want to run the data viewer? (y/n)")
             if response.lower() == "help":
                 click.echo("The data viewer is an interactive tool to view the collected data. You can step through each frame and filter bounding boxes by class.")
@@ -128,7 +129,7 @@ def main():
                 except Exception as e:
                     click.echo(f"Error: {e}")
 
-        if command == "process":
+        elif command == "process":
             response = click.prompt("How do you want to run the processing script? (Clean / Gen Disp / Sample / All / Cancel)")
             response = response.lower()
             response = response.strip()
@@ -175,9 +176,27 @@ def main():
                 except Exception as e:
                     click.echo(f"Error: {e}")
                 continue
-            
 
-        click.echo("Unknown command. Type 'help' for a list of options.")
+        elif command == "gen-pl":
+            response = click.prompt("Do you want to generate pseudo-lidar data from disparity maps? (y/n)")
+            response = response.lower()
+            response = response.strip()
+
+            if response == "help":
+                click.echo("This script will generate pseudo-Lidar data from the disparity maps.")
+                continue
+            if response in ["y", "yes"]:
+                click.echo("Generating pseudo-Lidar data ...")
+                
+                # run pseudo-lidar generation script
+                try:
+                    run_script("processing/pseudo_lidar/generate_pl.py")
+                except Exception as e:
+                    click.echo(f"Error: {e}")
+                continue
         
+        else:
+            click.echo("Unknown command. Type 'help' for a list of options.")
+
 if __name__ == "__main__":
     main()
