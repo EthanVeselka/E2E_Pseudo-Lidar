@@ -162,6 +162,8 @@ class FrustumDataset(object):
                 self.size_list = pickle.load(fp)
                 # frustum_angle is clockwise angle from positive x-axis
                 self.frustum_angle_list = pickle.load(fp)
+                self.path_list = pickle.load(fp)
+                self.obj_idx_list = pickle.load(fp)
 
     def __len__(self):
         return len(self.input_list)
