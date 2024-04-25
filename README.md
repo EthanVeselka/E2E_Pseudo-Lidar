@@ -1,5 +1,5 @@
 Implementing the Pseudo-LiDAR framework from "Pseudo-LiDAR from Visual Depth Estimation:
-Bridging the Gap in 3D Object Detection for Autonomous Driving" for self-driving in PyTorch and TensorFlow, 
+Bridging the Gap in 3D Object Detection for Autonomous Driving" in PyTorch and TensorFlow, 
 using CARLA simulated data.
 
 This is a flexible framework, meant to allow the addition of various models and the curation of customized, 
