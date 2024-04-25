@@ -2,3 +2,6 @@
 [2024-04-23 18:53:02 finetune_3d.py:101] INFO     load model ../saved_models/pretrained_sceneflow.tar
 [2024-04-23 18:58:08 finetune_3d.py:101] INFO     load model ../saved_models/pretrained_sceneflow.tar
 [2024-04-23 20:29:51 finetune_3d.py:101] INFO     load model ../saved_models/pretrained_sceneflow.tar
+[2024-04-24 21:43:33 finetune_3d.py:101] INFO     load model ../saved_models/finetune_pre/finetune_5.tar
+[2024-04-24 21:44:29 finetune_3d.py:101] INFO     load model ../saved_models/finetune_pre/finetune_5.tar
+[2024-04-24 21:49:23 finetune_3d.py:101] INFO     load model ../saved_models/finetune_pre/finetune_5.tar
