@@ -13,6 +13,7 @@ List of commands:
 - collect : Run the data collection script.
 - view : Run the data viewer, allowing you to view the collected data.
 - process : Run the data processing script.
+- gen-pl : Generate pseudo-Lidar from disparity maps.
 
 - help : Display a helpful message.
 - exit : Exit the program.
