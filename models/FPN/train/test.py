@@ -156,10 +156,14 @@ def inference(sess, ops, pc, one_hot_vec, batch_size):
 def write_detection_results(result_dir, id_list, type_list, box2d_list, center_list, \
                             heading_cls_list, heading_res_list, \
                             size_cls_list, size_res_list, \
-                            rot_angle_list, score_list):
+                            rot_angle_list, score_list, \
+                            path_list=None, obj_idx_list=None):
     ''' Write frustum pointnets results to KITTI format label files. '''
     if result_dir is None: return
     results = {} # map from idx to list of strings, each string is a line (without \n)
+    
+    obj_idx_dict = {}
+    
     for i in range(len(center_list)):
         idx = id_list[i]
         output_str = type_list[i] + " -1 -1 -10 "
@@ -172,6 +176,8 @@ def write_detection_results(result_dir, id_list, type_list, box2d_list, center_l
         output_str += "%f %f %f %f %f %f %f %f" % (h,w,l,tx,ty,tz,ry,score)
         if idx not in results: results[idx] = []
         results[idx].append(output_str)
+        
+        obj_idx_dict[(path_list[i], obj_idx_list[i])] = output_str
 
     # Write TXT files
     if not os.path.exists(result_dir): os.mkdir(result_dir)
@@ -182,7 +188,29 @@ def write_detection_results(result_dir, id_list, type_list, box2d_list, center_l
         fout = open(pred_filename, 'w')
         for line in results[idx]:
             fout.write(line+'\n')
-        fout.close() 
+        fout.close()
+    
+    for key, value in obj_idx_dict.items():
+        path = key[0]
+        output_path = os.path.join(path, "output")
+        if os.path.exists(output_path):
+            file_path = os.path.join(output_path, "labels.txt")
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        
+    
+    for key, value in obj_idx_dict.items():
+        path = key[0]
+        output_path = os.path.join(path, "output")
+        if not os.path.exists(output_path): os.mkdir(output_path)
+        file_path = os.path.join(output_path, "labels.txt")
+        with open(file_path, 'a+') as label_file:
+            label_file.write(value+'\n')
+        
+        print("path", path)
+        print("output_path ", output_path)
+        print("file_path", file_path)
+        print("value", value)
 
 def fill_files(output_dir, to_fill_filename_list):
     ''' Create empty files if not exist for the filelist. '''
@@ -350,7 +378,8 @@ def test(output_filename, result_dir=None):
     write_detection_results(result_dir, TEST_DATASET.id_list,
         TEST_DATASET.type_list, TEST_DATASET.box2d_list, center_list,
         heading_cls_list, heading_res_list,
-        size_cls_list, size_res_list, rot_angle_list, score_list)
+        size_cls_list, size_res_list, rot_angle_list, score_list,
+        TEST_DATASET.path_list, TEST_DATASET.obj_idx_list)
 
 
 if __name__=='__main__':

@@ -209,6 +209,8 @@ def extract_frustum_data(
     # (cont.) clockwise angle from positive x axis in velo coord.
     box3d_size_list = []  # array of l,w,h
     frustum_angle_list = []  # angle of 2d box center from pos x-axis
+    path_list = [] # string path of frame
+    obj_idx_list = [] # int number
 
     pos_cnt = 0
     all_cnt = 0
@@ -308,6 +310,8 @@ def extract_frustum_data(
                 heading_list.append(heading_angle)
                 box3d_size_list.append(box3d_size)
                 frustum_angle_list.append(frustum_angle)
+                path_list.append(dataset.data[data_idx])
+                obj_idx_list.append(obj_idx)
 
                 # collect statistics
                 pos_cnt += np.sum(label)
@@ -321,6 +325,9 @@ def extract_frustum_data(
     for key, value in obj_dict.items():
         print("Label:", key, "Frames seen:", value[0], "Frames saved:", value[1])
 
+    print("id_list", id_list)
+    print("path_list", path_list)
+    print("obj_idx_list", obj_idx_list)
     with open(output_filename, "wb") as fp:
         pickle.dump(id_list, fp)
         pickle.dump(box2d_list, fp)
@@ -331,6 +338,8 @@ def extract_frustum_data(
         pickle.dump(heading_list, fp)
         pickle.dump(box3d_size_list, fp)
         pickle.dump(frustum_angle_list, fp)
+        pickle.dump(path_list, fp)
+        pickle.dump(obj_idx_list, fp)
 
     if viz:
         import mayavi.mlab as mlab
