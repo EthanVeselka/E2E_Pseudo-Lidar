@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import csv
 
 import numpy as np
 from PIL import Image
@@ -37,78 +38,127 @@ def generate_disparity_from_velo(pc_velo, height, width, calib):
     disp_map = (calib.f_u * baseline) / depth_map
     return disp_map, depth_map
 
+    # def generate_disparity(filepath, image=False):
+
+    #     config = "config.ini"
+    #     calib = calib_utils.Calibration(
+    #         os.path.join(BASE_DIR, filepath, "calibmatrices.txt")
+    #     )
+    #     filepath = os.path.join(os.getcwd(), BASE_DIR, filepath)
+    #     os.chdir(filepath)
+
+    #     for episode in os.listdir(filepath):
+    #         if episode == ".gitignore":
+    #             continue
+    #         if episode == "calibmatrices.txt":
+    #             continue
+    #         if episode == "config.ini":
+    #             continue
+
+    #         os.chdir(episode)
+    #         curr_dir = filepath + "/" + episode
+
+    #         for iteration in os.listdir(curr_dir):
+    #             if iteration == config:
+    #                 continue
+    #             os.chdir(iteration)
+    #             curr_dir = filepath + "/" + episode + "/" + iteration
+
+    #             for timestamp in os.listdir(curr_dir):
+    #                 if timestamp == config:
+    #                     continue
+
+    #                 os.chdir(timestamp)
+    #                 curr_dir = filepath + "/" + episode + "/" + iteration + "/" + timestamp
+
+    #                 for frame in os.listdir(curr_dir):
+    #                     if frame == "config.ini":
+    #                         continue
+    #                     os.chdir(frame)
+
+    #                     lidar = open("left_lidar.ply", "r+")
+    #                     lines = lidar.readlines()
+    #                     lines = lines[10:]
+
+    #                     points = []
+    #                     for line in lines:
+    #                         values = line.split()[:3]  # Extract the first 3 values
+
+    #                         point = [
+    #                             float(value) for value in values
+    #                         ]  # Convert values to floats
+    #                         points.append(point)
+
+    #                     # print("s:", len(points), frame)
+    #                     point_cloud = np.array(points)
+    #                     img = Image.open("left_rgb.png")
+    #                     width, height = img.size
+    #                     disp, depth = generate_disparity_from_velo(
+    #                         point_cloud, height, width, calib
+    #                     )
+    #                     if not os.path.exists("output"):
+    #                         os.mkdir("output")
+    #                     np.save("output/left_disp.npy", disp)
+
+    #                     if image:
+    #                         Image.fromarray(disp).convert("RGB").save("output/disp.png")
+    #                         Image.fromarray(depth).convert("RGB").save("output/depth.png")
+
+    #                     os.chdir("..")
+
+    #             os.chdir("../../")
+    #         os.chdir("../")
+
+    #     os.chdir("../../../../..")
+
 
 def generate_disparity(filepath, image=False):
-
     config = "config.ini"
     calib = calib_utils.Calibration(
         os.path.join(BASE_DIR, filepath, "calibmatrices.txt")
     )
-    filepath = os.path.join(os.getcwd(), BASE_DIR, filepath)
-    os.chdir(filepath)
+    listfile_dir = "../carla_data/output"
+    filepath = os.path.join(BASE_DIR, filepath)
+    assert os.path.isdir(os.path.join(listfile_dir))
+    assert os.path.isdir(filepath)
 
-    for episode in os.listdir(filepath):
-        if episode == ".gitignore":
-            continue
-        if episode == "calibmatrices.txt":
-            continue
-        if episode == "config.ini":
-            continue
+    for task in ["train", "test", "val"]:
+        list_file = os.path.join(listfile_dir, task + ".csv")
 
-        os.chdir(episode)
-        curr_dir = filepath + "/" + episode
+        with open(list_file, "r+") as frame_path_folders:
+            reader = csv.reader(frame_path_folders)
 
-        for iteration in os.listdir(curr_dir):
-            if iteration == config:
-                continue
-            os.chdir(iteration)
-            curr_dir = filepath + "/" + episode + "/" + iteration
+            for row in reader:
+                path = os.path.join(filepath, row[0], "output")
+                if not os.path.exists(path):
+                    os.mkdir(path)
 
-            for timestamp in os.listdir(curr_dir):
-                if timestamp == config:
-                    continue
+                lidar = open(os.path.join(filepath, row[0], "left_lidar.ply"), "r+")
+                lines = lidar.readlines()
+                lines = lines[10:]
 
-                os.chdir(timestamp)
-                curr_dir = filepath + "/" + episode + "/" + iteration + "/" + timestamp
+                points = []
+                for line in lines:
+                    values = line.split()[:3]  # Extract the first 3 values
 
-                for frame in os.listdir(curr_dir):
-                    if frame == "config.ini":
-                        continue
-                    os.chdir(frame)
+                    point = [
+                        float(value) for value in values
+                    ]  # Convert values to floats
+                    points.append(point)
 
-                    lidar = open("left_lidar.ply", "r+")
-                    lines = lidar.readlines()
-                    lines = lines[10:]
+                point_cloud = np.array(points)
+                img = Image.open(os.path.join(filepath, row[0], "left_rgb.png"))
+                width, height = img.size
+                disp, depth = generate_disparity_from_velo(
+                    point_cloud, height, width, calib
+                )
 
-                    points = []
-                    for line in lines:
-                        values = line.split()[:3]  # Extract the first 3 values
+                np.save(os.path.join(path, "left_disp.npy"), disp)
 
-                        point = [
-                            float(value) for value in values
-                        ]  # Convert values to floats
-                        points.append(point)
-                    # else:
-                    #     points = np.load("output/pseudo_lidar.npy")
-
-                    # print("s:", len(points), frame)
-                    point_cloud = np.array(points)
-                    img = Image.open("left_rgb.png")
-                    width, height = img.size
-                    disp, depth = generate_disparity_from_velo(
-                        point_cloud, height, width, calib
+                if image:
+                    Image.fromarray(disp).convert("RGB").save(
+                        os.path.join(path, "disp.png")
                     )
-                    if not os.path.exists("output"):
-                        os.mkdir("output")
-                    np.save("output/left_disp.npy", disp)
-
-                    if image:
-                        Image.fromarray(disp).convert("RGB").save("output/disp.png")
-                        Image.fromarray(depth).convert("RGB").save("output/depth.png")
-
-                    os.chdir("..")
-
-            os.chdir("../../")
-        os.chdir("../")
-
-    os.chdir("../../../../..")
+                    Image.fromarray(depth).convert("RGB").save(
+                        os.path.join(path, "depth.png")
+                    )
