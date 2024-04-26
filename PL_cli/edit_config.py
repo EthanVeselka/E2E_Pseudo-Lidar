@@ -118,6 +118,17 @@ def edit_config(key: str, value: str, file_path: str):
         
         configs["Settings"]["poll_rate"] = str(value)
 
+    # input validation for "num_frames" key
+    elif key == "num_frames" and "Settings" in configs:
+        try:
+            value = int(value)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"Value {value} must be an integer.")
+        if value < 1:
+            raise argparse.ArgumentTypeError(f"Value {value} must be greater than zero.")
+        
+        configs["Settings"]["num_frames"] = str(value)
+
     # input validation for "camera_x" key
     elif key == "camera_x" and "Settings" in configs:
         try:

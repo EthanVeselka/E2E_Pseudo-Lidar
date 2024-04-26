@@ -56,11 +56,11 @@ def main():
 
                             if key == "done":
                                 break
-                            if key not in ["help", "data_path", "ego_behavior", "external_behavior", "weather", "map", "carla_python_path", "poll_rate", "camera_x", "camera_y", "camera_fov"]:
+                            if key not in ["help", "data_path", "ego_behavior", "external_behavior", "weather", "map", "carla_python_path", "poll_rate", "camera_x", "camera_y", "camera_fov", "num_frames"]:
                                 click.echo("Invalid key.")
                                 continue
                             if key == "help":
-                                click.echo("Options: data_path, ego_behavior, external_behavior, weather, map, carla_python_path, poll_rate, camera_x, camera_y, camera_fov")
+                                click.echo("Options: data_path, ego_behavior, external_behavior, weather, map, carla_python_path, poll_rate, camera_x, camera_y, camera_fov", "num_frames")
                                 continue
                             file_path = "carla_data/config.ini"
 
