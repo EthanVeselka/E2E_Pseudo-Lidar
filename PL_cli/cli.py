@@ -56,11 +56,11 @@ def main():
 
                             if key == "done":
                                 break
-                            if key not in ["help", "data_path", "ego_behavior", "external_behavior", "weather", "map", "carla_python_path", "poll_rate", "camera_x", "camera_y", "camera_fov"]:
+                            if key not in ["help", "data_path", "ego_behavior", "external_behavior", "weather", "map", "carla_python_path", "poll_rate", "camera_x", "camera_y", "camera_fov", "num_frames"]:
                                 click.echo("Invalid key.")
                                 continue
                             if key == "help":
-                                click.echo("Options: data_path, ego_behavior, external_behavior, weather, map, carla_python_path, poll_rate, camera_x, camera_y, camera_fov")
+                                click.echo("Options: data_path, ego_behavior, external_behavior, weather, map, carla_python_path, poll_rate, camera_x, camera_y, camera_fov", "num_frames")
                                 continue
                             file_path = "carla_data/config.ini"
 
@@ -152,7 +152,17 @@ def main():
             if response == "gen disp":
                 click.echo("Generating ground-truth disparities for all frames ...")
                 try:
-                    run_script("processing/process.py", "--gen_disp")
+                    response = click.prompt("Do you want to generate disparity images as well? (y/n)")
+                    response = response.lower()
+                    response = response.strip()
+
+                    if response in ["y", "yes"]:
+                        click.echo("Generating ground-truth disparities and images ...")
+                        run_script("processing/process.py", "--gen_disp --image")
+
+                    if response in ["n", "no"]:
+                        click.echo("Generating ground-truth disparities for all frames ...")
+                        run_script("processing/process.py", "--gen_disp")
                 except Exception as e:
                     click.echo(f"Error: {e}")
                 continue
@@ -169,10 +179,10 @@ def main():
                 try:
                     click.echo("Cleaning frame output folders ...")
                     run_script("processing/process.py", "--clean")
-                    click.echo("Generating ground-truth disparities for all frames ...")
-                    run_script("processing/process.py", "--gen_disp")
                     click.echo("Generating train/val/test splits ...")
                     run_script("processing/process.py", "--sample")
+                    click.echo("Generating ground-truth disparities for all frames ...")
+                    run_script("processing/process.py", "--gen_disp")
                 except Exception as e:
                     click.echo(f"Error: {e}")
                 continue
