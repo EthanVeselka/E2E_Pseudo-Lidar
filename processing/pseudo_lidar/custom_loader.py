@@ -39,7 +39,6 @@ def dataloader(datapath, split_file, task="train"):
 
         with open(list_file, "r+") as frame_path_folders:
             reader = csv.reader(frame_path_folders)
-            next(reader, None)
             for frame in reader:
                 left_image_paths.append(datapath + "/" + frame[0] + "/left_rgb.png")
                 right_image_paths.append(datapath + "/" + frame[0] + "/right_rgb.png")

@@ -35,7 +35,7 @@ def generate_disparity_from_velo(pc_velo, height, width, calib):
     baseline = 0.5
 
     disp_map = (calib.f_u * baseline) / depth_map
-    return disp_map
+    return disp_map, depth_map
 
 
 def generate_disparity(filepath, image=False):
@@ -75,6 +75,7 @@ def generate_disparity(filepath, image=False):
                     if frame == "config.ini":
                         continue
                     os.chdir(frame)
+
                     lidar = open("left_lidar.ply", "r+")
                     lines = lidar.readlines()
                     lines = lines[10:]
@@ -87,24 +88,27 @@ def generate_disparity(filepath, image=False):
                             float(value) for value in values
                         ]  # Convert values to floats
                         points.append(point)
+                    # else:
+                    #     points = np.load("output/pseudo_lidar.npy")
 
                     # print("s:", len(points), frame)
                     point_cloud = np.array(points)
                     img = Image.open("left_rgb.png")
                     width, height = img.size
-                    disp = generate_disparity_from_velo(
+                    disp, depth = generate_disparity_from_velo(
                         point_cloud, height, width, calib
                     )
                     if not os.path.exists("output"):
                         os.mkdir("output")
                     np.save("output/left_disp.npy", disp)
-        
+
                     if image:
                         Image.fromarray(disp).convert("RGB").save("output/disp.png")
+                        Image.fromarray(depth).convert("RGB").save("output/depth.png")
 
                     os.chdir("..")
-                    
+
             os.chdir("../../")
         os.chdir("../")
-            
+
     os.chdir("../../../../..")

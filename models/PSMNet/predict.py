@@ -38,7 +38,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--datapath",
-    default="carla_data/data/",
+    default="carla_data/data",
     help="datapath",
 )
 parser.add_argument(
@@ -218,7 +218,7 @@ def main():
             if args.save_figure:
                 if task == "test":
                     Image.fromarray(img).convert("RGB").save(
-                        save_path + f"/predicted_disp1_{frame}.png",
+                        save_path + f"/predicted_disp_{frame}.png",
                     )
                 else:
                     Image.fromarray(img).convert("RGB").save(
@@ -231,6 +231,11 @@ def main():
                 if task == "test":
                     np.save(save_path + f"/predicted_disp_{frame}.npy", img)
                 else:
+                    path = (
+                        "/".join(test_left_img[idx].split("/")[:-1]) + "/" + save_path
+                    )
+                    if not os.path.exists(path):
+                        os.mkdir(path)
                     np.save(
                         "/".join(test_left_img[idx].split("/")[:-1])
                         + "/"
@@ -238,6 +243,7 @@ def main():
                         + "/predicted_disp.npy",
                         img,
                     )
+                    print("Saved to path: ", path)
         print("Frames", count, ": average time = %.2f" % (t / count))
 
 

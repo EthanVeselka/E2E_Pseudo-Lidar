@@ -5,6 +5,6 @@ python3 ../finetune_3d.py \
     --split_file carla_data/output \
     --maxdisp 192 \
     --lr_scale 50 \
-    --epochs 10 \
+    --epochs 5 \
     --btrain 4 \
     --cuda

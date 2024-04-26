@@ -3,7 +3,7 @@ import os
 import sys
 import numpy as np
 import csv
-
+from PIL import Image
 
 sys.path.append("../..")
 BASE_DIR = "../.."
@@ -17,6 +17,9 @@ def project_disp_to_points(calib, disp, max_high):
     baseline = 0.50
     mask = disp > 0
     depth = calib.f_u * baseline / (disp + 1.0 - mask)
+    # depth = calib.f_u * baseline / disp
+    # Image.fromarray(disp).convert("RGB").save("disp_pl.png")
+    # Image.fromarray(depth).convert("RGB").save("depth_pl.png")
     rows, cols = depth.shape
     c, r = np.meshgrid(np.arange(cols), np.arange(rows))
     points = np.stack([c, r, depth])
@@ -24,8 +27,9 @@ def project_disp_to_points(calib, disp, max_high):
     points = points.T
     points = points[mask.reshape(-1)]
     cloud = calib.project_image_to_velo(points)
-    valid = (cloud[:, 0] >= 1.68) & (cloud[:, 2] < max_high) # Wall of points at x=1.6666666666667, removed
-
+    valid = (cloud[:, 0] >= 1.68) & (
+        cloud[:, 2] < max_high
+    )  # Wall of points at x=1.6666666666667, removed
     return cloud[valid]
 
 
@@ -36,7 +40,7 @@ def project_depth_to_points(calib, depth, max_high):
     points = points.reshape((3, -1))
     points = points.T
     cloud = calib.project_image_to_velo(points)
-    valid = (cloud[:, 0] >= 0) & (cloud[:, 2] < max_high)
+    valid = (cloud[:, 0] >= 1.68) & (cloud[:, 2] < max_high)
     return cloud[valid]
 
 
@@ -80,7 +84,9 @@ if __name__ == "__main__":
                     os.mkdir(path)
 
                 assert os.path.exists(os.path.join(path, disp))
-                disp_map = np.load(os.path.join(path, disp)) # Use ground truth or predicted disparities
+                disp_map = np.load(
+                    os.path.join(path, disp)
+                )  # Use ground truth or predicted disparities
                 disp_map = (disp_map * 256).astype(np.uint16) / 256.0
                 lidar = project_disp_to_points(calib, disp_map, args.max_high)
                 lidar = np.concatenate([lidar, np.ones((lidar.shape[0], 1))], 1)
