@@ -146,15 +146,14 @@ def main():
                     continue
 
         elif command == "collect":
-            response = click.prompt(
-                "Do you want to run the data collection script? (y/n)"
-            )
-            if response.lower() == "help":
-                click.echo(
-                    "The data collection script will run the CARLA client to collect data. The data will be saved in the specified data_path."
-                )
+            response = click.prompt("Do you want to run the data collection script? (y/n)")
+            response = response.lower()
+            response = response.strip()
+
+            if response == "help":
+                click.echo("The data collection script will run the CARLA client to collect data. The data will be saved in the specified data_path.")
                 continue
-            if response.lower() in ["y", "yes"]:
+            if response in ["y", "yes"]:
                 click.echo("Running carla_data/carla_client.py ...")
 
                 # run data collection script
@@ -165,14 +164,15 @@ def main():
 
         elif command == "view":
             response = click.prompt("Do you want to run the data viewer? (y/n)")
-            if response.lower() == "help":
-                click.echo(
-                    "The data viewer is an interactive tool to view the collected data. You can step through each frame and filter bounding boxes by class."
-                )
+            response = response.lower()
+            response = response.strip()
+            
+            if response == "help":
+                click.echo("The data viewer is an interactive tool to view the collected data. You can step through each frame and filter bounding boxes by class.")
                 # TODO: Trevor: Add a description of the data viewer controls here AND in readme
                 continue
 
-            if response.lower() in ["y", "yes"]:
+            if response in ["y", "yes"]:
                 click.echo("Running carla_data/data_viewer.py ...")
 
                 # run data viewer script
