@@ -281,7 +281,7 @@ def load_image(img_filename):
 
 
 def load_velo_scan(velo_filename):
-    if velo_filename == "left_lidar.ply":
+    if "left_lidar.ply" in velo_filename:
         lidar = open(velo_filename, "r+")
         lines = lidar.readlines()
         lines = lines[10:]

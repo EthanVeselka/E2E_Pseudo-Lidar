@@ -14,6 +14,9 @@ import importlib
 import numpy as np
 import tensorflow as tf
 import pickle
+import cv2
+from math import tan, pi, acos
+import xml.etree.ElementTree as ET
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -34,6 +37,7 @@ parser.add_argument('--data_path', default=None, help='frustum dataset pickle fi
 # parser.add_argument('--from_rgb_detection', action='store_true', help='test from dataset files from rgb detection.')
 # parser.add_argument('--idx_path', default=None, help='filename of txt where each line is a data idx, used for rgb detection -- write <id>.txt for all frames. [default: None]')
 parser.add_argument('--dump_result', action='store_true', help='If true, also dump results to .pickle file')
+parser.add_argument('--draw_predictions', action='store_true', default=False, help='If true, draws predicted bounding boxes onto images')
 FLAGS = parser.parse_args()
 
 # Set training configurations
@@ -48,7 +52,27 @@ NUM_CHANNEL = 4
 # Load Frustum Datasets.
 TEST_DATASET = provider.FrustumDataset(npoints=NUM_POINT, split='val',
     rotate_to_center=True, overwritten_data_path=FLAGS.data_path,
-    from_rgb_detection=FLAGS.from_rgb_detection, one_hot=True)
+    from_rgb_detection=False, one_hot=True)
+
+def get_image_point(loc):
+    # Calculate 2D projection of 3D coordinate
+    Cx = 1280 / 2
+    Cy = 720 / 2
+    fov = 90
+
+    f = 1280 /(2.0 * tan(fov * pi / 360))
+    K = np.array([[f, 0, Cx], [0, f, Cy], [0, 0, 1]], dtype=np.float64)
+
+    # Format the input coordinate (loc is a carla.Position object)
+    point = np.array([loc[0], loc[1], loc[2]])
+
+    # now project 3D->2D using the camera matrix
+    point_img = np.dot(K, point)
+    # normalize
+    point_img[0] /= point_img[2]
+    point_img[1] /= point_img[2]
+
+    return point_img[0:2]
 
 def get_session_and_ops(batch_size, num_point):
     ''' Define model graph, load model parameters,
@@ -157,7 +181,7 @@ def write_detection_results(result_dir, id_list, type_list, box2d_list, center_l
                             heading_cls_list, heading_res_list, \
                             size_cls_list, size_res_list, \
                             rot_angle_list, score_list, \
-                            path_list=None, obj_idx_list=None):
+                            path_list, obj_idx_list):
     ''' Write frustum pointnets results to KITTI format label files. '''
     if result_dir is None: return
     results = {} # map from idx to list of strings, each string is a line (without \n)
@@ -177,7 +201,26 @@ def write_detection_results(result_dir, id_list, type_list, box2d_list, center_l
         if idx not in results: results[idx] = []
         results[idx].append(output_str)
         
-        obj_idx_dict[(path_list[i], obj_idx_list[i])] = output_str
+        # if path_list[i] not in obj_idx_dict:
+            # obj_idx_dict[path_list[i]] = {}
+
+        # Get pred 3d box
+        box_size = provider.class2size(size_cls_list[i], size_res_list[i])
+        heading_angle = provider.class2angle(
+            heading_cls_list[i], heading_res_list[i], NUM_HEADING_BIN
+        )
+        corners_3d = provider.get_3d_box(box_size, heading_angle, center_list[i])
+
+        img_corners_3d = []
+
+        for point in corners_3d:
+            img_point = get_image_point(point)
+            img_corners_3d.append(img_point)
+        
+        if not np.isnan(score):
+            if path_list[i] not in obj_idx_dict:
+                obj_idx_dict[path_list[i]] = {}
+            obj_idx_dict[path_list[i]][obj_idx_list[i]] = [output_str, img_corners_3d, score]
 
     # Write TXT files
     if not os.path.exists(result_dir): os.mkdir(result_dir)
@@ -205,12 +248,64 @@ def write_detection_results(result_dir, id_list, type_list, box2d_list, center_l
         if not os.path.exists(output_path): os.mkdir(output_path)
         file_path = os.path.join(output_path, "labels.txt")
         with open(file_path, 'a+') as label_file:
-            label_file.write(value+'\n')
+            for label in value.values():
+                label_file.write(label[0]+'\n')
+    
+    if FLAGS.draw_predictions:
+        # Sort paths by average frame score
+        average_scores = {}
+        for key, sub_dict in obj_idx_dict.items():
+            path = key
+            total_score = 0
+            count = 0
+            for idx_values in sub_dict.values():
+                total_score += idx_values[2]
+                count += 1
+            # average_scores[path] = total_score / count if count > 0 else 0
+            average_scores[path] = total_score
+        sorted_paths = sorted(average_scores, key=average_scores.get, reverse=False)
         
-        print("path", path)
-        print("output_path ", output_path)
-        print("file_path", file_path)
-        print("value", value)
+        # Draw 10 best scoring frames
+        idx = 0
+        for path in sorted_paths[:50]:
+            sub_dict = obj_idx_dict[path]
+            image_path = os.path.join(path, "left_rgb.png")
+            output_path = os.path.join(path, "output")
+            label_path = os.path.join(output_path, "labels.txt")
+
+            image = cv2.imread(image_path)
+            
+            # Draw ground truth boxes
+            bb_path = os.path.join(path, "dynamic_bbs.xml")
+            tree = ET.parse(bb_path)
+            root = tree.getroot()
+            
+            for bb in root:
+                for child in bb:
+                    title = child.tag
+                    if title.startswith('edge'):
+                        start_pos = (int(float(child.attrib['x1'])), int(float(child.attrib['y1'])))
+                        end_pos = (int(float(child.attrib['x2'])), int(float(child.attrib['y2'])))
+                        cv2.line(image, start_pos, end_pos, (0, 255, 0), 2)
+            
+            # Draw prediction boxes
+            for label in sub_dict.values():
+                label_data = label[0].split()
+                obj_class = label_data[0]
+                edges = [[0,1], [1,2], [3,2], [3,0], [0,4], [4,5], [5,1], [5,6], [7,6], [7,4], [6,2], [7,3]]
+                verts = label[1]
+                for edge in edges:
+                    p1 = verts[edge[0]]
+                    p2 = verts[edge[1]]
+                    cv2.line(image, (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])), (0, 0, 255), 2)
+                x_min = int(float(verts[7][0]))
+                y_min = int(float(verts[7][1]))
+                cv2.putText(image, obj_class, (x_min-5, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, .6, (0, 0, 255), 2)
+                
+            output_dir = os.path.join(result_dir, 'data')
+            pred_image_path = os.path.join(output_dir, "prediction" + str(idx) + ".png")
+            cv2.imwrite(pred_image_path, image)
+            idx += 1    
 
 def fill_files(output_dir, to_fill_filename_list):
     ''' Create empty files if not exist for the filelist. '''
@@ -383,7 +478,7 @@ def test(output_filename, result_dir=None):
 
 
 if __name__=='__main__':
-    if FLAGS.from_rgb_detection:
-        test_from_rgb_detection(FLAGS.output+'.pickle', FLAGS.output)
-    else:
-        test(FLAGS.output+'.pickle', FLAGS.output)
+    # if FLAGS.from_rgb_detection:
+    #     test_from_rgb_detection(FLAGS.output+'.pickle', FLAGS.output)
+    # else:
+    test(FLAGS.output+'.pickle', FLAGS.output)

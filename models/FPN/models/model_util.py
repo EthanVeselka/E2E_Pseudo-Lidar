@@ -23,15 +23,14 @@ g_type_mean_size = {'Car': np.array([3.88311640418,1.62856739989,1.52563191462])
                     'Truck': np.array([10.13586957,2.58549199,3.2520595]),
                     'Walker': np.array([0.84422524,0.66068622,1.76255119]),
                     'Person_sitting': np.array([0.80057803,0.5983815,1.27450867]),
-                    'Cyclist': np.array([1.76282397,0.59706367,1.73698127]),
                     'Tram': np.array([16.17150617,2.53246914,3.53079012]),
                     'Misc': np.array([3.64300781,1.54298177,1.92320313]),
-                    'Bicycle': np.array([3.64300781,1.54298177,1.92320313]),
-                    'TrafficLight': np.array([3.64300781,1.54298177,1.92320313]),
-                    'TrafficSigns': np.array([3.64300781,1.54298177,1.92320313]),
-                    'Bus': np.array([3.64300781,1.54298177,1.92320313]),
-                    'Motorcycle': np.array([3.64300781,1.54298177,1.92320313]),
-                    'Vehicle': np.array([3.64300781,1.54298177,1.92320313])}
+                    'Bicycle': np.array([1.76282397,0.59706367,1.73698127]),
+                    'TrafficLight': np.array([0.3285467327,0.3285467327,0.871063232421875]),
+                    'TrafficSigns': np.array([0.6821317672729492, 0.07595250010490417, 0.6821319460868835]),
+                    'Bus': np.array([10.13586957,2.58549199,3.2520595]),
+                    'Motorcycle': np.array([1.76282397,0.59706367,1.73698127]),
+                    'Vehicle': np.array([3.88311640418,1.62856739989,1.52563191462])}
 g_mean_size_arr = np.zeros((NUM_SIZE_CLUSTER, 3)) # size clustrs
 for i in range(NUM_SIZE_CLUSTER):
     g_mean_size_arr[i,:] = g_type_mean_size[g_class2type[i]]

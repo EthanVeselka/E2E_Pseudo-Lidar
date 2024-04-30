@@ -34,7 +34,7 @@ def in_hull(p, hull):
 def extract_pc_in_box3d(pc, box3d):
     """pc: (N,3), box3d: (8,3)"""
     box3d_roi_inds = in_hull(pc[:, 0:3], box3d)
-    print("points in bb: ", pc[box3d_roi_inds, :].shape)
+    # print("points in bb: ", pc[box3d_roi_inds, :].shape)
     return pc[box3d_roi_inds, :], box3d_roi_inds
 
 
@@ -162,7 +162,6 @@ def random_shift_box2d(box2d, shift_ratio=0.1):
     cy2 = cy + h * r * (np.random.random() * 2 - 1)
     h2 = h * (1 + np.random.random() * 2 * r - r)  # 0.9 to 1.1
     w2 = w * (1 + np.random.random() * 2 * r - r)  # 0.9 to 1.1
-    print(cy2, h2)
     return np.array([cx2 - w2 / 2.0, cy2 - h2 / 2.0, cx2 + w2 / 2.0, cy2 + h2 / 2.0])
 
 
@@ -233,8 +232,6 @@ def extract_frustum_data(
         )
         
         obj_seen = {}
-        print("len pc_velo", len(pc_velo[:, 0:3]))
-        print("len imgfov_pc_velo", len(imgfov_pc_velo))
 
         for obj_idx in range(len(objects)):
             
@@ -257,8 +254,6 @@ def extract_frustum_data(
                 # perturb_box2d = False
                 if perturb_box2d:
                     xmin, ymin, xmax, ymax = random_shift_box2d(box2d)
-                    print(box2d)
-                    print(xmin, ymin, xmax, ymax)
                 else:
                     xmin, ymin, xmax, ymax = box2d
                 box_fov_inds = (
@@ -285,7 +280,7 @@ def extract_frustum_data(
                 obj = objects[obj_idx]
                 box3d_pts_2d, box3d_pts_3d = utils.compute_box_3d(obj, calib.P)
                 _, inds = extract_pc_in_box3d(pc_in_box_fov, box3d_pts_3d)
-                print(box3d_pts_3d)
+                # print(box3d_pts_3d)
                 label = np.zeros((pc_in_box_fov.shape[0]))
                 label[inds] = 1
                 # Get 3D BOX heading
@@ -294,7 +289,7 @@ def extract_frustum_data(
                 box3d_size = np.array([obj.l, obj.w, obj.h])
 
                 # Reject too far away object or object without points
-                if ymax - ymin < 25 or np.sum(label) == 0:
+                if ymax - ymin < 5 or np.sum(label) == 0:
                     continue
 
                 if obj_seen[object_label][1] == False:
@@ -325,9 +320,6 @@ def extract_frustum_data(
     for key, value in obj_dict.items():
         print("Label:", key, "Frames seen:", value[0], "Frames saved:", value[1])
 
-    print("id_list", id_list)
-    print("path_list", path_list)
-    print("obj_idx_list", obj_idx_list)
     with open(output_filename, "wb") as fp:
         pickle.dump(id_list, fp)
         pickle.dump(box2d_list, fp)
@@ -659,6 +651,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Only generate cars; otherwise cars, peds and cycs",
     )
+    parser.add_argument(
+        '--data_path', 
+        default="../output",
+        help='frustum dataset pickle filepath [default: ../output]'
+    )
     # parser.add_argument(
     #     "--gen_val_rgb_detection",
     #     action="store_true",
@@ -699,7 +696,7 @@ if __name__ == "__main__":
         extract_frustum_data(
             os.path.join(BASE_DIR, "train.csv"),
             "training",
-            os.path.join("../output", output_prefix + "train.pickle"),
+            os.path.join(args.data_path, output_prefix + "train.pickle"),
             viz=False,
             perturb_box2d=True,
             augmentX=5,
@@ -710,7 +707,7 @@ if __name__ == "__main__":
         extract_frustum_data(
             os.path.join(BASE_DIR, "val.csv"),
             "training",
-            os.path.join("../output", output_prefix + "val.pickle"),
+            os.path.join(args.data_path, output_prefix + "val.pickle"),
             viz=False,
             perturb_box2d=False,
             augmentX=1,

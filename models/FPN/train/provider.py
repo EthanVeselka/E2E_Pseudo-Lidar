@@ -139,7 +139,13 @@ class FrustumDataset(object):
             overwritten_data_path = os.path.join(
                 "../output", "frustum_all_%s.pickle" % (split)
             )
+        else:
+            overwritten_data_path = os.path.join(
+                overwritten_data_path, "frustum_all_%s.pickle" % (split)
+            )
 
+        print("full pickle path:", overwritten_data_path)
+        
         self.from_rgb_detection = from_rgb_detection
         if from_rgb_detection:
             with open(overwritten_data_path, "rb") as fp:

@@ -17,6 +17,7 @@ cd gcc-5.3.0
 make
 make
 make install DESTDIR=$(pwd)/gcc
+mv gcc ../gcc
 
 module purge
 
@@ -26,9 +27,9 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/sw/eb/sw/Python/3.6.4-golf-2018a/lib
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/sw/eb/sw/Python/3.6.4-golf-2018a/lib/python3.6/site-packages/numpy-1.14.0-py3.6-linux-x86_64.egg/numpy/core/lib
 
 # Load GCC 5.3
-export PATH=$(pwd)/venv/dependencies/gcc-5.3.0/gcc/usr/local/bin:$PATH
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/venv/dependencies/gcc-5.3.0/gcc/usr/local/lib
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/venv/dependencies/gcc-5.3.0/gcc/usr/local/lib64
+export PATH=$(pwd)/venv/dependencies/gcc/usr/local/bin:$PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/venv/dependencies/gcc/usr/local/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)/venv/dependencies/gcc/usr/local/lib64
 
 # Create new virtual environment
 python -m venv ./venv

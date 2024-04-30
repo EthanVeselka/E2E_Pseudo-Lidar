@@ -76,6 +76,11 @@ parser.add_argument(
     default=None,
     help="Restore model path e.g. log/model.ckpt [default: None]",
 )
+parser.add_argument(
+    '--data_path', 
+    default=None,
+    help='frustum dataset pickle filepath [default: None]'
+)
 FLAGS = parser.parse_args()
 
 # Set training configurations
@@ -115,9 +120,10 @@ TRAIN_DATASET = provider.FrustumDataset(
     random_flip=True,
     random_shift=True,
     one_hot=True,
+    overwritten_data_path=FLAGS.data_path,
 )
 TEST_DATASET = provider.FrustumDataset(
-    npoints=NUM_POINT, split="val", rotate_to_center=True, one_hot=True
+    npoints=NUM_POINT, split="val", rotate_to_center=True, one_hot=True, overwritten_data_path=FLAGS.data_path,
 )
 
 
