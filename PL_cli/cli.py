@@ -192,7 +192,11 @@ def main():
                 continue
 
             if response == "help":
-                click.echo("")  # TODO: description
+                click.echo("Options:\n",
+                           "clean: Simplifies and cleans file paths for the data.\n",
+                           "gen disp: Generates disparities from LiDAR ground truths for model training \n",
+                           "sample: Samples frames from the collected data and assigns them for training, validation, or testing.\n",
+                           "all: Run all three scripts sequentially: clean, gen disp, sample\n")  
                 continue
 
             if response == "clean":
