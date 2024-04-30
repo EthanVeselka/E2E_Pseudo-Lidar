@@ -78,3 +78,6 @@ The `processing/config.ini` file contains these parameters for sampling from the
 
 **SAMPLE_SIZE** : int
 - Description : Number of frames to sample for train/val/test sets.
+
+## Data Viewer
+The data viewer allows you to view the collected CARLA data, one frame at a time. Use the arrow keys to navigate through the data. *(more description here)*
