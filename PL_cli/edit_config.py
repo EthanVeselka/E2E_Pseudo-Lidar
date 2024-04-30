@@ -45,8 +45,6 @@ def edit_config(key: str, value: str, file_path: str):
             raise argparse.ArgumentTypeError(f"Value {value} must be an integer.")
         if value < 10:
             raise argparse.ArgumentTypeError(f"Value {value} must be at least 10.")
-        # TODO: Add a check for the maximum value of sample_size
-        # TODO: Add a way to use all frames
 
         configs["General"]["sample_size"] = str(value)
 

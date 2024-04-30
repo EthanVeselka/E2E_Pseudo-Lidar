@@ -20,9 +20,7 @@ def main():
             break
 
         elif command == "help":
-            click.echo(
-                "\n".join(
-                    [
+            click.echo("\n".join([
                         "",
                         "edit: Edit a configuration file",
                         "collect: Run the data collection script",
@@ -32,10 +30,7 @@ def main():
                         "gen-pl: Generate pseudo-lidar data from disparity maps",
                         "",
                         "help: Display a helpful message",
-                        "exit: Close the CLI",
-                    ]
-                )
-            )
+                        "exit: Close the CLI"]))
             continue
 
         elif command == "edit":

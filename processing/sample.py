@@ -4,13 +4,10 @@ import torch
 import numpy as np
 import configparser
 from ast import literal_eval
-#import sys
 
 BASE_DIR = ".."
 #sys.path.append(BASE_DIR)
 
-
-# ---WARNING: INCOMPLETE---#
 def sample(config="config.ini", save_file_path="carla_data/output"):
     """
     Sample from root directory using config, returns listfiles for train/test splits
@@ -40,7 +37,6 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
 
     DATA_PATH = os.path.join(os.getcwd(), BASE_DIR, DATA_PATH)
     SPLITS = literal_eval(SPLITS)
-    # SPLITS = [float(x) for x in SPLITS]
     SAMPLE_SIZE = int(SAMPLE_SIZE)
     
     # Check values
@@ -52,8 +48,8 @@ def sample(config="config.ini", save_file_path="carla_data/output"):
         if not ALL:
             assert EGO_BEHAVIOR in ["normal", "aggressive", "cautious"]
             assert EXTERNAL_BEHAVIOR in ["normal", "aggressive", "cautious"]
-            assert WEATHER in [1, 2, 5, 8, 9, 12]
-            assert MAP in ["Town01", "Town02", "Town07"]
+            assert (WEATHER >= 1 and WEATHER <= 14)
+            assert MAP in ["Town01", "Town02", "Town03", "Town04", "Town05", "Town06", "Town07", "Town08", "Town09", "Town10", "Town11", "Town12"]
     except AssertionError:
         raise ValueError("Invalid configuration parameters. Please check config.ini.")
 
