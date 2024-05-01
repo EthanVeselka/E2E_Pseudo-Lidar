@@ -164,7 +164,11 @@ def main():
             
             if response == "help":
                 click.echo("The data viewer is an interactive tool to view the collected data. You can step through each frame and filter bounding boxes by class.")
-                # TODO: Trevor: Add a description of the data viewer controls here AND in readme
+                click.echo("Controls for the Data Viewer:")
+                click.echo("  Left Arrow / Right Arrow : previous / next frame")
+                click.echo("  Down Arrow / Up Arrow : previous / next camera")
+                click.echo("  Q / E : change bounding box class")
+                click.echo("  B : Toggle 3D / 2D bounding boxes")
                 continue
 
             if response in ["y", "yes"]:
