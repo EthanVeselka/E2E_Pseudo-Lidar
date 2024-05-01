@@ -80,4 +80,10 @@ The `processing/config.ini` file contains these parameters for sampling from the
 - Description : Number of frames to sample for train/val/test sets.
 
 ## Data Viewer
-The data viewer allows you to view the collected CARLA data, one frame at a time. Use the arrow keys to navigate through the data. *(more description here)*
+The data viewer is an interactive tool to view the collected data. You can step through each frame and filter bounding boxes by class.
+
+**Controls:**
+- **← / →** : Select previous/next frame.
+- **↑ / ↓** : Select camera.
+- **Q / E** : Select which class of objects to show bounding boxes for.
+- **B**     : Toggle 3D/2D bounding boxes.
